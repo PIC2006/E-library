@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard | E-Library{% endblock %}
+{% block content %}
+<div class="space-y-8">
+    <section>
+        <h1 class="text-4xl font-bold text-white">Admin Control Panel</h1>
+        <p class="mt-2 text-slate-300">Manage thesis records, publishing, users, and system analytics.</p>
+    </section>
+
+    <section class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div class="glass rounded-3xl p-6">
+            <p class="text-sm text-slate-400">Total Thesis</p>
+            <p class="mt-2 text-4xl font-bold text-white">{{ thesis_count }}</p>
+        </div>
+        <div class="glass rounded-3xl p-6">
+            <p class="text-sm text-slate-400">Published</p>
+            <p class="mt-2 text-4xl font-bold text-cyan-300">{{ approved_count }}</p>
+        </div>
+        <div class="glass rounded-3xl p-6">
+            <p class="text-sm text-slate-400">Private / Hidden</p>
+            <p class="mt-2 text-4xl font-bold text-emerald-300">{{ private_count }}</p>
+        </div>
+        <div class="glass rounded-3xl p-6">
+            <p class="text-sm text-slate-400">Total Downloads</p>
+            <p class="mt-2 text-4xl font-bold text-white">{{ total_downloads }}</p>
+        </div>
+        <div class="glass rounded-3xl p-6">
+            <p class="text-sm text-slate-400">Total Users</p>
+            <p class="mt-2 text-4xl font-bold text-white">{{ total_users }}</p>
+        </div>
+    </section>
+
+    <section class="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+        <div class="glass rounded-3xl p-8">
+            <div class="flex flex-col gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Approved Thesis</h2>
+                    <p class="mt-2 text-sm text-slate-400">Search and filter approved records.</p>
+                </div>
+                <form method="get" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                    <input name="q" value="{{ admin_query }}" placeholder="Search by title, author, key..." class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500">
+                    <select name="course_id" class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white focus:border-cyan-300 focus:outline-none">
+                        <option value="">All courses</option>
+                        {% for course_id, course_name in search_course_options %}
+                            <option value="{{ course_id }}" {% if course_id == admin_course_id %}selected{% endif %}>{{ course_name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input name="year" type="number" value="{{ admin_year }}" placeholder="Year (e.g., 2024)" class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500" min="1900" max="2099">
+                    <button type="submit" class="rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300">Search</button>
+                </form>
+            </div>
+
+            <div class="mt-6 max-h-[62vh] overflow-y-auto pr-2 space-y-4">
+                {% for thesis in approved_theses %}
+                    <div class="rounded-2xl border border-cyan-400/15 bg-slate-950/40 p-5">
+                        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                            <div>
+                                <h3 class="font-semibold text-white">{{ thesis.title }}</h3>
+                                <p class="mt-1 text-sm text-slate-400">{{ thesis.course.name }} • {{ thesis.year }}</p>
+                                <p class="mt-2 text-xs text-slate-500">Authors: {% for author in thesis.authors.all %}{{ author.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                            </div>
+                            <div class="flex flex-wrap gap-2">
+                                <a href="{% url 'thesis-detail' thesis.pk %}" class="rounded-full border border-cyan-400/20 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10">Open</a>
+                                <a href="{% url 'thesis-pdf' thesis.pk %}" class="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300">View PDF</a>
+                            </div>
+                        </div>
+                    </div>
+                {% empty %}
+                    <p class="text-slate-300">No approved thesis matches your search.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="space-y-8">
+            <div class="glass rounded-3xl p-8">
+                <h2 class="text-2xl font-bold text-white">Quick actions</h2>
+                <p class="mt-3 text-sm text-slate-300">Use these shortcuts for common admin tasks.</p>
+                <div class="mt-6 grid gap-3">
+                    <a href="{% url 'thesis-upload' %}" class="rounded-2xl bg-cyan-400 px-5 py-3 text-center text-sm font-semibold text-slate-950 hover:bg-cyan-300">Upload new thesis</a>
+                    <a href="{% url 'search' %}" class="rounded-2xl border border-cyan-400/30 px-5 py-3 text-center text-sm text-cyan-100 hover:bg-cyan-400/10">Open advanced search</a>
+                    <a href="{% url 'dashboard' %}" class="rounded-2xl border border-cyan-400/30 px-5 py-3 text-center text-sm text-cyan-100 hover:bg-cyan-400/10">View analytics dashboard</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section class="glass rounded-3xl p-8">
+        <h2 class="text-2xl font-bold text-white">Recent Uploads</h2>
+        <div class="mt-6 overflow-x-auto">
+            <table class="w-full text-sm text-slate-300">
+                <thead>
+                    <tr class="border-b border-cyan-400/10">
+                        <th class="px-4 py-3 text-left text-cyan-200">Title</th>
+                        <th class="px-4 py-3 text-left text-cyan-200">Uploader</th>
+                        <th class="px-4 py-3 text-left text-cyan-200">Status</th>
+                        <th class="px-4 py-3 text-left text-cyan-200">Date</th>
+                        <th class="px-4 py-3 text-center text-cyan-200">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-cyan-400/10">
+                    {% for thesis in recent_uploads %}
+                        <tr>
+                            <td class="px-4 py-3 font-medium text-white">{{ thesis.title|truncatewords:5 }}</td>
+                            <td class="px-4 py-3">{{ thesis.uploaded_by.username }}</td>
+                            <td class="px-4 py-3">
+                                <span class="
+                                    {% if thesis.status == 'approved' %}rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-100
+                                    {% elif thesis.status == 'pending' %}rounded-full border border-yellow-400/30 px-3 py-1 text-xs text-yellow-100
+                                    {% elif thesis.status == 'rejected' %}rounded-full border border-rose-400/30 px-3 py-1 text-xs text-rose-100
+                                    {% endif %}
+                                ">{{ thesis.get_status_display }}</span>
+                            </td>
+                            <td class="px-4 py-3 text-slate-400">{{ thesis.created_at|date:"M d" }}</td>
+                            <td class="px-4 py-3 text-center"><a href="{% url 'thesis-detail' thesis.pk %}" class="text-cyan-300 hover:text-cyan-200">View</a></td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        {% if recent_uploads_page and recent_uploads_page.paginator.num_pages > 1 %}
+            <div class="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm">
+                {% if recent_uploads_page.has_previous %}
+                    <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&recent_page={{ recent_uploads_page.previous_page_number }}" class="rounded-xl border border-cyan-400/20 px-5 py-2.5 text-slate-200 hover:bg-cyan-400/10">Back</a>
+                {% endif %}
+
+                {% for num in recent_uploads_page.paginator.page_range %}
+                    {% if num == recent_uploads_page.number %}
+                        <span class="rounded-xl bg-cyan-400 px-4 py-2.5 font-semibold text-slate-950">{{ num }}</span>
+                    {% else %}
+                        <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&recent_page={{ num }}" class="rounded-xl border border-cyan-400/20 px-4 py-2.5 text-slate-200 hover:bg-cyan-400/10">{{ num }}</a>
+                    {% endif %}
+                {% endfor %}
+
+                {% if recent_uploads_page.has_next %}
+                    <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&recent_page={{ recent_uploads_page.next_page_number }}" class="rounded-xl border border-cyan-400/20 px-5 py-2.5 text-slate-200 hover:bg-cyan-400/10">Next</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </section>
+</div>
+{% endblock %}

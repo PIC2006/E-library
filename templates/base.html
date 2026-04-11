@@ -1,0 +1,483 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}E-Library Thesis Repository{% endblock %}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=Manrope:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #07111f;
+            --panel: rgba(8, 26, 39, 0.82);
+            --panel-border: rgba(104, 230, 255, 0.18);
+            --text: #e7f8fb;
+            --muted: #91b5bf;
+            --accent: #22d3ee;
+            --accent-strong: #06b6d4;
+        }
+        body {
+            font-family: 'Manrope', sans-serif;
+            background:
+                radial-gradient(circle at top left, rgba(34, 211, 238, 0.18), transparent 28%),
+                radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 24%),
+                linear-gradient(180deg, #04101b 0%, #07111f 55%, #04101b 100%);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        h1, h2, h3, .brand {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        .glass {
+            background: var(--panel);
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(18px);
+            box-shadow: 0 24px 70px rgba(0, 0, 0, 0.28);
+        }
+        .accent-border {
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 0 0 1px rgba(34, 211, 238, 0.12);
+        }
+        .toast-stack {
+            pointer-events: none;
+        }
+        .toast-enter {
+            animation: toast-in 0.28s ease-out;
+        }
+        .toast-exit {
+            animation: toast-out 0.24s ease-in forwards;
+        }
+        .loading-spinner {
+            display: inline-block;
+            width: 0.9rem;
+            height: 0.9rem;
+            border: 2px solid currentColor;
+            border-right-color: transparent;
+            border-radius: 9999px;
+            animation: spin 0.75s linear infinite;
+        }
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(-12px) scale(0.98); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes toast-out {
+            from { opacity: 1; transform: translateY(0) scale(1); }
+            to { opacity: 0; transform: translateY(-8px) scale(0.98); }
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Page Loading Indicator -->
+    <div id="loadingBar" class="fixed top-0 left-0 h-1 bg-cyan-500 shadow-lg shadow-cyan-500/50 z-50 transition-all duration-300 ease-out" style="width: 0%; opacity: 0;"></div>
+
+    <header class="sticky top-0 z-40 border-b border-cyan-400/10 bg-slate-950/80 backdrop-blur-xl">
+        <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+            <a href="{% url 'home' %}" class="brand text-lg font-bold tracking-wide text-cyan-200">E-Library Thesis Repository</a>
+
+            <div class="flex items-center gap-3">
+                <button id="mobileMenuButton" type="button" class="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-400/30 text-cyan-100 hover:bg-cyan-400/10 md:hidden" aria-label="Toggle navigation" aria-expanded="false" aria-controls="mobileMenu">
+                    <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                    </svg>
+                </button>
+
+                <nav class="hidden items-center gap-2 text-sm text-slate-200 md:flex">
+                    <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'home' %}">Home</a>
+                    {% if user.is_authenticated %}
+                        {% if user.is_staff or user.is_superuser or user.role == 'admin' %}
+                            <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'admin-home' %}">Staff Portal</a>
+                            <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'thesis-upload' %}">Upload</a>
+                        {% endif %}
+                    {% else %}
+                        <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'admin-login' %}">Admin Login</a>
+                    {% endif %}
+                </nav>
+
+                {% if user.is_authenticated %}
+                    <div class="relative">
+                        <button id="profileMenuButton" type="button" class="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-slate-900/70 px-2 py-1.5 text-cyan-100 hover:bg-cyan-400/10" aria-expanded="false" aria-controls="profileMenu">
+                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-500/10 text-sm font-semibold text-cyan-100">
+                                {{ user.first_name|default:user.username|slice:":1"|upper }}
+                            </span>
+                            <span class="hidden max-w-[9rem] truncate text-sm text-slate-200 lg:block">{{ user.get_full_name|default:user.username }}</span>
+                            <svg class="h-4 w-4 text-cyan-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                        </button>
+
+                        <div id="profileMenu" class="glass absolute right-0 mt-3 hidden w-72 overflow-hidden rounded-2xl border border-cyan-400/20">
+                            <div class="border-b border-cyan-400/10 px-5 py-4">
+                                <p class="truncate text-base font-semibold text-white">{{ user.get_full_name|default:user.username }}</p>
+                                <p class="mt-1 truncate text-sm text-slate-400">{{ user.email }}</p>
+                            </div>
+                            <div class="px-3 py-3">
+                                <a href="{% url 'admin-home' %}" class="block rounded-xl px-3 py-2.5 text-sm text-slate-200 hover:bg-cyan-400/10">Admin Home</a>
+                                <form method="post" action="{% url 'logout' %}">
+                                    {% csrf_token %}
+                                    <button type="submit" class="mt-1 w-full rounded-xl px-3 py-2.5 text-left text-sm text-rose-200 hover:bg-rose-500/10">Sign out</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div id="mobileMenu" class="hidden border-t border-cyan-400/10 bg-slate-950/95 md:hidden">
+            <nav class="mx-auto grid max-w-7xl gap-2 px-4 py-4 sm:px-6">
+                <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'home' %}">Home</a>
+                {% if user.is_authenticated %}
+                    {% if user.is_staff or user.is_superuser or user.role == 'admin' %}
+                        <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'admin-home' %}">Staff Portal</a>
+                        <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'thesis-upload' %}">Upload</a>
+                    {% endif %}
+                {% else %}
+                    <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'admin-login' %}">Admin Login</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <div id="searchModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-md">
+        <div class="glass w-full max-w-3xl rounded-3xl p-6 sm:p-8">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.28em] text-cyan-200/70">Quick search</p>
+                    <h2 class="mt-2 text-2xl font-bold text-white">Find a thesis</h2>
+                    <p class="mt-2 text-sm text-slate-400">Search by title, author, keyword, course, or year.</p>
+                </div>
+                <button type="button" onclick="closeSearchModal()" class="rounded-full border border-cyan-400/20 px-3 py-2 text-cyan-100 hover:bg-cyan-400/10">✕</button>
+            </div>
+
+            <form method="get" action="{% url 'search' %}" class="mt-6 grid gap-4 md:grid-cols-2">
+                <input name="q" list="global-search-suggestions" placeholder="Search everything" class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500">
+                <input name="author" placeholder="Author" class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500">
+                <select name="course_id" class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white focus:border-cyan-300 focus:outline-none">
+                    <option value="">All courses</option>
+                    {% for course_id, course_name in search_course_options %}
+                        <option value="{{ course_id }}">{{ course_name }}</option>
+                    {% endfor %}
+                </select>
+                <input name="year" placeholder="Year" class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500">
+                <div class="md:col-span-2 flex flex-wrap gap-3">
+                    <button type="submit" class="rounded-full bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300">Search</button>
+                    <a href="{% url 'search' %}" class="rounded-full border border-cyan-400/30 px-5 py-3 text-cyan-100 hover:bg-cyan-400/10">Advanced search page</a>
+                </div>
+            </form>
+            <datalist id="global-search-suggestions">
+                {% for item in search_suggestions %}
+                    <option value="{{ item }}"></option>
+                {% endfor %}
+            </datalist>
+        </div>
+    </div>
+
+    <div id="toastStack" class="toast-stack fixed right-4 top-20 z-50 flex w-[min(92vw,26rem)] flex-col gap-3"></div>
+
+    <main class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script>
+        function lockFormSubmission(form, loadingText = 'Uploading...') {
+            if (!form || form.dataset.submitting === 'true') {
+                return false;
+            }
+
+            form.dataset.submitting = 'true';
+            const submitButtons = form.querySelectorAll('button[type="submit"]');
+            submitButtons.forEach((button) => {
+                button.disabled = true;
+                const originalText = button.dataset.originalText || button.textContent.trim();
+                button.dataset.originalText = originalText;
+                button.innerHTML = `<span class="inline-flex items-center gap-2"><span class="loading-spinner"></span><span>${button.dataset.loadingText || loadingText}</span></span>`;
+                button.classList.add('opacity-80', 'cursor-not-allowed');
+            });
+
+            if (typeof showToast === 'function') {
+                showToast(loadingText, 'info');
+            }
+
+            return true;
+        }
+
+        function showToast(message, kind = 'info') {
+            const stack = document.getElementById('toastStack');
+            if (!stack) {
+                return;
+            }
+
+            const colors = {
+                success: 'border-emerald-400/30 bg-emerald-500/10 text-emerald-50',
+                warning: 'border-amber-400/30 bg-amber-500/10 text-amber-50',
+                error: 'border-rose-400/30 bg-rose-500/10 text-rose-50',
+                info: 'border-cyan-400/30 bg-cyan-500/10 text-cyan-50',
+            };
+
+            const toast = document.createElement('div');
+            toast.className = `glass toast-enter pointer-events-auto rounded-2xl border px-4 py-3 text-sm shadow-xl ${colors[kind] || colors.info}`;
+            toast.innerHTML = `
+                <div class="flex items-start justify-between gap-3">
+                    <div class="leading-6">${message}</div>
+                    <button type="button" class="text-base leading-none text-white/80 hover:text-white" aria-label="Close toast">×</button>
+                </div>
+            `;
+
+            const closeButton = toast.querySelector('button');
+            const removeToast = () => {
+                if (toast.classList.contains('toast-exit')) {
+                    return;
+                }
+                toast.classList.add('toast-exit');
+                setTimeout(() => toast.remove(), 240);
+            };
+
+            closeButton.addEventListener('click', removeToast);
+            stack.appendChild(toast);
+            setTimeout(removeToast, 3200);
+        }
+
+        {% if messages %}
+            document.addEventListener('DOMContentLoaded', function() {
+                {% for message in messages %}
+                    showToast("{{ message|escapejs }}", "{% if 'error' in message.tags %}error{% elif 'warning' in message.tags %}warning{% elif 'success' in message.tags %}success{% else %}info{% endif %}");
+                {% endfor %}
+            });
+        {% endif %}
+
+        function openSearchModal() {
+            document.getElementById('searchModal').classList.remove('hidden');
+            document.getElementById('searchModal').classList.add('flex');
+            showToast('Search modal opened', 'info');
+        }
+
+        function closeSearchModal() {
+            const modal = document.getElementById('searchModal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            showToast('Search modal closed', 'info');
+        }
+
+        function setupHeaderMenus() {
+            const mobileMenuButton = document.getElementById('mobileMenuButton');
+            const mobileMenu = document.getElementById('mobileMenu');
+            const profileMenuButton = document.getElementById('profileMenuButton');
+            const profileMenu = document.getElementById('profileMenu');
+
+            if (mobileMenuButton && mobileMenu) {
+                mobileMenuButton.addEventListener('click', function() {
+                    const isOpen = !mobileMenu.classList.contains('hidden');
+                    mobileMenu.classList.toggle('hidden', isOpen);
+                    mobileMenuButton.setAttribute('aria-expanded', String(!isOpen));
+                });
+            }
+
+            if (profileMenuButton && profileMenu) {
+                profileMenuButton.addEventListener('click', function(event) {
+                    event.stopPropagation();
+                    const isOpen = !profileMenu.classList.contains('hidden');
+                    profileMenu.classList.toggle('hidden', isOpen);
+                    profileMenuButton.setAttribute('aria-expanded', String(!isOpen));
+                });
+            }
+
+            document.addEventListener('click', function(event) {
+                if (profileMenuButton && profileMenu && !profileMenu.classList.contains('hidden')) {
+                    if (!profileMenu.contains(event.target) && !profileMenuButton.contains(event.target)) {
+                        profileMenu.classList.add('hidden');
+                        profileMenuButton.setAttribute('aria-expanded', 'false');
+                    }
+                }
+            });
+
+            window.addEventListener('resize', function() {
+                if (window.innerWidth >= 768 && mobileMenu && !mobileMenu.classList.contains('hidden')) {
+                    mobileMenu.classList.add('hidden');
+                    if (mobileMenuButton) {
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                    }
+                }
+            });
+        }
+
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                closeSearchModal();
+                const profileMenu = document.getElementById('profileMenu');
+                const profileMenuButton = document.getElementById('profileMenuButton');
+                if (profileMenu && !profileMenu.classList.contains('hidden')) {
+                    profileMenu.classList.add('hidden');
+                    if (profileMenuButton) {
+                        profileMenuButton.setAttribute('aria-expanded', 'false');
+                    }
+                }
+            }
+        });
+
+        document.getElementById('searchModal')?.addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeSearchModal();
+            }
+        });
+
+        // Page Loading Indicator
+        let loadingTimeout;
+        const loadingBar = document.getElementById('loadingBar');
+
+        function showLoadingBar() {
+            if (loadingTimeout) clearTimeout(loadingTimeout);
+            loadingBar.style.opacity = '1';
+            loadingBar.style.width = '30%';
+            
+            loadingTimeout = setTimeout(() => {
+                loadingBar.style.width = '60%';
+            }, 500);
+        }
+
+        function completeLoadingBar() {
+            if (loadingTimeout) clearTimeout(loadingTimeout);
+            loadingBar.style.width = '100%';
+            
+            setTimeout(() => {
+                loadingBar.style.opacity = '0';
+                setTimeout(() => {
+                    loadingBar.style.width = '0%';
+                }, 300);
+            }, 400);
+        }
+
+        // Show loading bar on form submissions
+        document.addEventListener('submit', function(e) {
+            showLoadingBar();
+        }, true);
+
+        // Show loading bar on link clicks (except hash links and current page)
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (link && link.href && !link.href.includes('#') && !link.target && link.host === window.location.host) {
+                if (!link.href.includes('javascript:')) {
+                    showLoadingBar();
+                }
+            }
+        }, true);
+
+        // Hide loading bar when page fully loads
+        window.addEventListener('load', function() {
+            completeLoadingBar();
+        });
+
+        // Also complete loading bar after a timeout (in case page load event doesn't fire)
+        window.addEventListener('beforeunload', function() {
+            completeLoadingBar();
+        });
+
+        function setupPdfFileValidation() {
+            const fileInputs = document.querySelectorAll('input[type="file"][name="pdf_file"]');
+            fileInputs.forEach((input) => {
+                input.addEventListener('change', function() {
+                    const file = this.files && this.files[0];
+                    if (!file) {
+                        return;
+                    }
+
+                    const isPdfName = file.name.toLowerCase().endsWith('.pdf');
+                    const allowedTypes = ['application/pdf', 'application/x-pdf'];
+                    const isPdfType = !file.type || allowedTypes.includes(file.type);
+
+                    if (!isPdfName || !isPdfType) {
+                        this.value = '';
+                        showToast('Only PDF files are allowed for thesis upload.', 'error');
+                    }
+                });
+            });
+        }
+
+        function setupNumericPhoneValidation() {
+            const phoneInputs = document.querySelectorAll('input[name="phone_number"]');
+            phoneInputs.forEach((input) => {
+                input.addEventListener('input', function() {
+                    this.value = this.value.replace(/\D+/g, '');
+                });
+            });
+        }
+
+        function setupPasswordToggles() {
+            const passwordInputs = document.querySelectorAll('input[type="password"], input[data-password-toggle="enabled"]');
+            passwordInputs.forEach((input) => {
+                if (input.dataset.passwordToggleReady === 'true') {
+                    return;
+                }
+
+                input.dataset.passwordToggleReady = 'true';
+                input.setAttribute('data-password-toggle', 'enabled');
+                input.classList.add('pr-12');
+
+                const wrapper = document.createElement('div');
+                wrapper.className = 'relative';
+                input.parentNode.insertBefore(wrapper, input);
+                wrapper.appendChild(input);
+
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-cyan-200';
+                button.setAttribute('aria-label', 'Show password');
+                button.setAttribute('data-password-toggle-button', 'true');
+                button.innerHTML = `
+                    <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                        <path d="M1 12C2.73 7.61 7 4.5 12 4.5c5 0 9.27 3.11 11 7.5-1.73 4.39-6 7.5-11 7.5-5 0-9.27-3.11-11-7.5Z"></path>
+                        <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                `;
+
+                button.addEventListener('click', function() {
+                    const isVisible = input.type === 'text';
+                    input.type = isVisible ? 'password' : 'text';
+                    button.setAttribute('aria-label', isVisible ? 'Show password' : 'Hide password');
+                });
+
+                wrapper.appendChild(button);
+            });
+        }
+
+        function setupDownloadConfirmations() {
+            document.querySelectorAll('.js-download-confirm').forEach((link) => {
+                if (link.dataset.confirmReady === 'true') {
+                    return;
+                }
+
+                link.dataset.confirmReady = 'true';
+                link.addEventListener('click', function(event) {
+                    event.preventDefault();
+                    const firstConfirm = window.confirm('Are you sure you want to download this PDF?');
+                    if (!firstConfirm) {
+                        return;
+                    }
+
+                    const secondConfirm = window.confirm('Please confirm again to start the download.');
+                    if (!secondConfirm) {
+                        return;
+                    }
+
+                    showToast('Preparing download', 'info');
+                    window.location.href = this.href;
+                });
+            });
+        }
+
+        // Initial completion on DOMContentLoaded
+        document.addEventListener('DOMContentLoaded', function() {
+            completeLoadingBar();
+            setupHeaderMenus();
+            setupPdfFileValidation();
+            setupNumericPhoneValidation();
+            setupPasswordToggles();
+            setupDownloadConfirmations();
+        });
+    </script>
+</body>
+</html>

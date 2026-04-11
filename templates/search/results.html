@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Search | E-Library{% endblock %}
+{% block content %}
+<section class="mb-12">
+    <!-- Search Section -->
+    <div class="glass rounded-3xl p-8 accent-border mb-12">
+        <form method="get" class="space-y-6">
+            <!-- Large Search Input -->
+            <div class="relative">
+                <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input name="q" list="global-search-suggestions" value="{{ request.GET.q }}" placeholder="Search by title, author, keywords..." class="w-full rounded-2xl border border-cyan-400/30 bg-slate-950/40 px-12 py-4 text-base text-white placeholder-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 transition">
+            </div>
+
+            <!-- Filter Row - Clean Layout -->
+            <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
+                <input name="author" value="{{ request.GET.author }}" placeholder="Author" class="rounded-xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-cyan-300 focus:outline-none transition">
+                
+                <select name="course_id" class="rounded-xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white focus:border-cyan-300 focus:outline-none transition cursor-pointer">
+                    <option value="">All courses</option>
+                    {% for course_id, course_name in search_course_options %}
+                        <option value="{{ course_id }}" {% if request.GET.course_id == course_id|stringformat:"s" %}selected{% endif %}>{{ course_name }}</option>
+                    {% endfor %}
+                </select>
+
+                <select name="year" class="rounded-xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white focus:border-cyan-300 focus:outline-none transition cursor-pointer">
+                    <option value="">All years</option>
+                    {% for y in years_list %}
+                        <option value="{{ y }}">{{ y }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="md:col-span-2 rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition shadow-lg hover:shadow-cyan-500/30">
+                    Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <datalist id="global-search-suggestions">
+        {% for item in search_suggestions %}
+            <option value="{{ item }}"></option>
+        {% endfor %}
+    </datalist>
+</section>
+
+<section>
+    {% if results %}
+        <div class="space-y-4">
+            {% for thesis in results %}
+                <article class="glass rounded-3xl p-6 transition hover:-translate-y-0.5 hover:border-cyan-300/40">
+                    <h2 class="text-2xl font-semibold text-white"><a href="{% url 'thesis-detail' thesis.pk %}" class="hover:text-cyan-200">{{ thesis.title }}</a></h2>
+                    <p class="mt-2 text-sm text-slate-400">{{ thesis.course.name }} • {{ thesis.year }}</p>
+                    <p class="mt-3 text-slate-300">{{ thesis.abstract|truncatewords:32 }}</p>
+                    <div class="mt-5 flex flex-wrap gap-3">
+                        <a href="{% url 'thesis-pdf' thesis.pk %}" class="rounded-full border border-cyan-400/30 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10 transition" onclick="showToast('Opening PDF viewer', 'info')">View PDF</a>
+                        <a href="{% url 'thesis-detail' thesis.pk %}" class="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300 transition" onclick="showToast('Opening thesis details', 'info')">Open thesis</a>
+                    </div>
+                </article>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="glass rounded-3xl p-8 text-center text-slate-300">
+            No search results found. Try different keywords or filters.
+        </div>
+    {% endif %}
+</section>
+
+{% if is_paginated %}
+    <div class="mt-8 flex items-center justify-center gap-3 text-sm text-cyan-100">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&q={{ request.GET.q }}&author={{ request.GET.author }}&course_id={{ request.GET.course_id }}&year={{ request.GET.year }}" class="rounded-full border border-cyan-400/20 px-4 py-2">Previous</a>{% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&q={{ request.GET.q }}&author={{ request.GET.author }}&course_id={{ request.GET.course_id }}&year={{ request.GET.year }}" class="rounded-full border border-cyan-400/20 px-4 py-2">Next</a>{% endif %}
+    </div>
+{% endif %}
+{% endblock %}

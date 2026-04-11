@@ -1,0 +1,132 @@
+{% extends 'base.html' %}
+{% block title %}Thesis | E-Library{% endblock %}
+{% block content %}
+<section class="mb-12">
+    <!-- Hero Section with Floating Book -->
+    <div class="glass rounded-3xl p-8 accent-border mb-8 relative overflow-hidden">
+        <div class="grid gap-8 lg:grid-cols-[1fr_350px] items-start">
+            <div>
+                <p class="mb-4 text-sm uppercase tracking-[0.3em] text-cyan-200/80">Institutional knowledge vault</p>
+                <h1 class="text-4xl font-bold leading-tight text-white sm:text-5xl">Discover, review, and archive thesis work in one scalable repository.</h1>
+                <p class="mt-4 text-slate-300">Search by title, author, keywords, or course. Admin uploads, preview generation, download tracking, and analytics run in one streamlined flow.</p>
+            </div>
+            
+            <!-- Floating Book Icon -->
+            <div class="hidden lg:flex items-center justify-center">
+                <div class="relative w-48 h-48 animate-pulse">
+                    <svg viewBox="0 0 200 200" class="w-full h-full drop-shadow-2xl" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Book Cover -->
+                        <rect x="40" y="30" width="120" height="140" fill="url(#bookGradient)" rx="8"/>
+                        <rect x="40" y="30" width="120" height="140" fill="none" stroke="rgba(34, 211, 238, 0.3)" stroke-width="2" rx="8"/>
+                        
+                        <!-- Book Spine -->
+                        <rect x="55" y="30" width="8" height="140" fill="rgba(34, 211, 238, 0.2)" rx="4"/>
+                        
+                        <!-- Book Pages -->
+                        <g opacity="0.6">
+                            <rect x="45" y="35" width="110" height="130" fill="none" stroke="rgba(34, 211, 238, 0.15)" stroke-width="1" rx="4"/>
+                        </g>
+                        
+                        <!-- Text Lines on Cover -->
+                        <line x1="70" y1="60" x2="140" y2="60" stroke="rgba(34, 211, 238, 0.4)" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="70" y1="75" x2="130" y2="75" stroke="rgba(34, 211, 238, 0.3)" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="70" y1="90" x2="135" y2="90" stroke="rgba(34, 211, 238, 0.25)" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="70" y1="120" x2="125" y2="120" stroke="rgba(34, 211, 238, 0.35)" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="70" y1="135" x2="120" y2="135" stroke="rgba(34, 211, 238, 0.3)" stroke-width="2" stroke-linecap="round"/>
+                        
+                        <!-- Gradient Definition -->
+                        <defs>
+                            <linearGradient id="bookGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:0.8" />
+                                <stop offset="100%" style="stop-color:#0891b2;stop-opacity:0.6" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search Section -->
+    <div class="glass rounded-3xl p-8 accent-border mb-12">
+        <form method="get" action="{% url 'search' %}" class="space-y-6">
+            <!-- Large Search Input -->
+            <div class="relative">
+                <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-cyan-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <input name="q" list="global-search-suggestions" placeholder="Search by title, author, keywords..." class="w-full rounded-2xl border border-cyan-400/30 bg-slate-950/40 px-12 py-4 text-base text-white placeholder-slate-400 focus:border-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-400/20 transition">
+            </div>
+
+            <!-- Filter Row - Clean Layout -->
+            <div class="grid gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-5">
+                <input name="author" placeholder="Author" class="rounded-xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder-slate-500 focus:border-cyan-300 focus:outline-none transition">
+                
+                <select name="course_id" class="rounded-xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white focus:border-cyan-300 focus:outline-none transition cursor-pointer">
+                    <option value="">All courses</option>
+                    {% for course_id, course_name in search_course_options %}
+                        <option value="{{ course_id }}">{{ course_name }}</option>
+                    {% endfor %}
+                </select>
+
+                <select name="year" class="rounded-xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white focus:border-cyan-300 focus:outline-none transition cursor-pointer">
+                    <option value="">All years</option>
+                    {% for y in years_list %}
+                        <option value="{{ y }}">{{ y }}</option>
+                    {% endfor %}
+                </select>
+
+                <button type="submit" class="md:col-span-2 rounded-xl bg-cyan-500 px-6 py-3 text-sm font-semibold text-slate-950 hover:bg-cyan-400 transition shadow-lg hover:shadow-cyan-500/30">
+                    Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <datalist id="global-search-suggestions">
+        {% for item in search_suggestions %}
+            <option value="{{ item }}"></option>
+        {% endfor %}
+    </datalist>
+</section>
+
+<section class="grid gap-6">
+    {% for thesis in theses %}
+        <article class="glass rounded-3xl p-6 transition hover:-translate-y-0.5 hover:border-cyan-300/40">
+            <div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                <div>
+                    <div class="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-cyan-200/70">
+                        <span>{{ thesis.course.name }}</span>
+                        <span>•</span>
+                        <span>{{ thesis.year }}</span>
+                        <span>•</span>
+                        <span>{{ thesis.status }}</span>
+                    </div>
+                    <h3 class="mt-3 text-2xl font-semibold text-white">
+                        <a href="{% url 'thesis-detail' thesis.pk %}" class="hover:text-cyan-200">{{ thesis.title }}</a>
+                    </h3>
+                    <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-300">{{ thesis.abstract|truncatewords:36 }}</p>
+                    <p class="mt-4 text-sm text-slate-400">Authors: {% for author in thesis.authors.all %}{{ author.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                </div>
+                <div class="flex flex-col items-start gap-3 md:items-end">
+                    <span class="rounded-full border border-cyan-400/20 px-4 py-2 text-sm text-cyan-100">{{ thesis.download_count }} downloads</span>
+                    <div class="flex flex-wrap gap-2">
+                        <a class="rounded-full border border-cyan-400/30 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10" href="{% url 'thesis-pdf' thesis.pk %}" onclick="showToast('Opening PDF viewer', 'info')">View PDF</a>
+                        <a class="rounded-full bg-cyan-400 px-5 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300" href="{% url 'thesis-detail' thesis.pk %}" onclick="showToast('Opening thesis details', 'info')">Open thesis</a>
+                    </div>
+                </div>
+            </div>
+        </article>
+    {% empty %}
+        <div class="glass rounded-3xl p-10 text-center text-slate-300">No published thesis yet.</div>
+    {% endfor %}
+</section>
+
+{% if is_paginated %}
+    <div class="mt-8 flex items-center justify-center gap-3 text-sm text-cyan-100">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}" class="rounded-full border border-cyan-400/20 px-4 py-2">Previous</a>{% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}" class="rounded-full border border-cyan-400/20 px-4 py-2">Next</a>{% endif %}
+    </div>
+{% endif %}
+{% endblock %}
