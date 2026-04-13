@@ -74,10 +74,30 @@
 <script>
     function submitStandaloneUploadForm(form, loadingText) {
         const overlay = document.getElementById('standaloneUploadOverlay');
+        const submitBtn = form.querySelector('button[type="submit"]');
+        
+        // Check if button is already disabled (rate limiting)
+        if (submitBtn.disabled) {
+            return false;
+        }
+        
+        // Disable the button to prevent multiple submissions
+        submitBtn.disabled = true;
+        submitBtn.style.opacity = '0.6';
+        submitBtn.style.cursor = 'not-allowed';
+        
         if (overlay) {
             overlay.classList.remove('hidden');
             overlay.classList.add('flex');
         }
+        
+        // Set timeout to re-enable button after 30 seconds (safety measure)
+        setTimeout(() => {
+            submitBtn.disabled = false;
+            submitBtn.style.opacity = '1';
+            submitBtn.style.cursor = 'pointer';
+        }, 30000);
+        
         return lockFormSubmission(form, loadingText);
     }
 </script>

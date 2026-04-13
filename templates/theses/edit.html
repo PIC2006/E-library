@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Edit Thesis | E-Library{% endblock %}
+{% block content %}
+<section class="mx-auto max-w-6xl space-y-6">
+    <div class="glass rounded-3xl p-8 accent-border">
+        <p class="text-xs uppercase tracking-[0.24em] text-cyan-200/70">Edit thesis</p>
+        <h1 class="mt-3 text-4xl font-bold text-white">Edit thesis metadata</h1>
+        <p class="mt-3 max-w-3xl text-sm text-slate-300">Update thesis information. Changing the PDF file will update the preview and search index.</p>
+    </div>
+
+    <div class="grid gap-6 lg:grid-cols-[1.5fr_0.9fr]">
+        <div class="glass rounded-3xl p-8">
+            <form id="editThesisForm" method="post" enctype="multipart/form-data" class="grid gap-5">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                        {% for error in form.non_field_errors %}
+                            <p>{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div>
+                        <label class="mb-2 block text-sm font-medium text-cyan-100">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <p class="mt-1 text-xs text-slate-400">{{ field.help_text }}</p>
+                        {% endif %}
+                        {% for error in field.errors %}
+                            <p class="mt-1 text-sm text-rose-300">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+
+                <div class="flex flex-wrap gap-3 pt-2">
+                    <button class="rounded-full bg-cyan-400 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-300" type="submit" id="submitBtn" data-loading-text="Saving...">Save changes</button>
+                    <a href="{% url 'thesis-detail' object.pk %}" class="rounded-full border border-cyan-400/30 px-6 py-3 text-cyan-100 hover:bg-cyan-400/10">Cancel</a>
+                </div>
+            </form>
+        </div>
+
+        <aside class="space-y-6">
+            <div class="glass rounded-3xl p-6">
+                <h2 class="text-lg font-semibold text-white">Before you save</h2>
+                <ul class="mt-4 space-y-3 text-sm text-slate-300">
+                    <li class="rounded-xl border border-cyan-400/15 bg-slate-950/40 px-4 py-3">Upload format: <span class="font-semibold text-cyan-100">PDF only</span></li>
+                    <li class="rounded-xl border border-cyan-400/15 bg-slate-950/40 px-4 py-3">Year is optional: <span class="font-semibold text-cyan-100">leave blank for unknowns</span></li>
+                    <li class="rounded-xl border border-cyan-400/15 bg-slate-950/40 px-4 py-3">Author input: use <span class="font-semibold text-cyan-100">comma-separated names</span></li>
+                </ul>
+            </div>
+
+            <div class="glass rounded-3xl p-6">
+                <h2 class="text-lg font-semibold text-white">Actions</h2>
+                <div class="mt-4 space-y-2">
+                    <a href="{% url 'thesis-delete' object.pk %}" class="block rounded-full border border-rose-400/30 px-6 py-3 text-center text-rose-100 hover:bg-rose-400/10">Delete thesis</a>
+                </div>
+            </div>
+        </aside>
+    </div>
+</section>
+
+<div id="editThesisOverlay" class="pointer-events-none fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/70 backdrop-blur-sm">
+    <div class="glass rounded-3xl px-6 py-4 text-center text-white">
+        <div class="mx-auto mb-3 h-8 w-8 border-4 border-cyan-300 border-r-transparent rounded-full animate-spin"></div>
+        <p class="text-sm font-semibold">Saving changes...</p>
+        <p class="mt-1 text-xs text-slate-300">Please wait while your thesis is being updated.</p>
+    </div>
+</div>
+
+<script>
+    document.getElementById('editThesisForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const overlay = document.getElementById('editThesisOverlay');
+            const btn = document.getElementById('submitBtn');
+        
+            // Check if button is already disabled (rate limiting)
+            if (btn.disabled) {
+                return false;
+            }
+        
+            // Disable button to prevent multiple submissions
+            btn.disabled = true;
+            btn.style.opacity = '0.6';
+            btn.style.cursor = 'not-allowed';
+        
+            overlay.classList.remove('hidden');
+            overlay.classList.add('flex');
+        
+            // Set timeout to re-enable button after 30 seconds (safety measure)
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.style.cursor = 'pointer';
+            }, 30000);
+        
+            this.submit();
+    });
+</script>
+{% endblock %}

@@ -1,5 +1,6 @@
 import threading
 import logging
+import hashlib
 
 from django.contrib import messages
 from django.db import transaction
@@ -13,7 +14,7 @@ from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse_lazy
 from django.utils import timezone
 from django.views import View
-from django.views.generic import CreateView, DetailView, ListView, TemplateView
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from .forms import ThesisUploadForm
 from .models import Author, Download, Keyword, Thesis
@@ -21,6 +22,16 @@ from .tasks import build_thesis_previews, extract_thesis_text, process_thesis_up
 
 
 logger = logging.getLogger(__name__)
+
+
+def _calculate_file_hash(pdf_file):
+    """Calculate SHA256 hash of an uploaded PDF file"""
+    pdf_file.seek(0)
+    hash_obj = hashlib.sha256()
+    for chunk in pdf_file.chunks(chunk_size=8192):
+        hash_obj.update(chunk)
+    pdf_file.seek(0)
+    return hash_obj.hexdigest()
 
 
 def _process_upload_background(thesis_id):
@@ -106,6 +117,20 @@ class ThesisDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         thesis = self.object
+        user = self.request.user
+        can_manage = user.is_authenticated and (
+            user == thesis.uploaded_by or user.is_staff or user.is_superuser or getattr(user, "role", None) == "admin"
+        )
+
+        if can_manage:
+            context["edit_form"] = ThesisUploadForm(
+                instance=thesis,
+                initial={
+                    "author_names": ", ".join(thesis.authors.values_list("full_name", flat=True)),
+                    "keyword_names": ", ".join(thesis.keywords.values_list("name", flat=True)),
+                },
+            )
+        context["can_manage"] = can_manage
 
         raw_text = (thesis.search_document or "").strip()
         normalized_text = " ".join(raw_text.split())
@@ -167,6 +192,7 @@ class ThesisUploadView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         form.instance.is_public = True
         form.instance.approved_by = self.request.user
         form.instance.published_at = timezone.now()
+        form.instance.file_hash = _calculate_file_hash(form.cleaned_data["pdf_file"])
         response = super().form_valid(form)
         author_names = [name.strip() for name in form.cleaned_data["author_names"].split(",") if name.strip()]
         keyword_names = [name.strip() for name in form.cleaned_data.get("keyword_names", "").split(",") if name.strip()]
@@ -176,6 +202,64 @@ class ThesisUploadView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         queue_or_process_thesis_upload(self.object)
         messages.success(self.request, "Thesis uploaded and published.")
         return response
+
+
+class ThesisEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
+    model = Thesis
+    form_class = ThesisUploadForm
+    template_name = "theses/edit.html"
+    
+    def test_func(self):
+        thesis = self.get_object()
+        user = self.request.user
+        is_admin = user.is_staff or user.is_superuser or getattr(user, "role", None) == "admin"
+        is_uploader = thesis.uploaded_by == user
+        return is_admin or is_uploader
+
+    def handle_no_permission(self):
+        messages.error(self.request, "You don't have permission to edit this thesis.")
+        return redirect("thesis-detail", pk=self.kwargs.get("pk"))
+
+    def get_success_url(self):
+        return reverse_lazy("thesis-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        # Calculate new file hash if file was changed
+        if "pdf_file" in form.changed_data and form.cleaned_data["pdf_file"]:
+            form.instance.file_hash = _calculate_file_hash(form.cleaned_data["pdf_file"])
+        
+        response = super().form_valid(form)
+        
+        # Update authors and keywords
+        author_names = [name.strip() for name in form.cleaned_data["author_names"].split(",") if name.strip()]
+        keyword_names = [name.strip() for name in form.cleaned_data.get("keyword_names", "").split(",") if name.strip()]
+        
+        self.object.authors.set(_get_or_create_authors(author_names))
+        self.object.keywords.set(_get_or_create_keywords(keyword_names))
+        
+        messages.success(self.request, "Thesis updated successfully.")
+        return response
+
+
+class ThesisDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
+    model = Thesis
+    template_name = "theses/delete.html"
+    success_url = reverse_lazy("thesis-list")
+
+    def test_func(self):
+        thesis = self.get_object()
+        user = self.request.user
+        is_admin = user.is_staff or user.is_superuser or getattr(user, "role", None) == "admin"
+        is_uploader = thesis.uploaded_by == user
+        return is_admin or is_uploader
+
+    def handle_no_permission(self):
+        messages.error(self.request, "You don't have permission to delete this thesis.")
+        return redirect("thesis-detail", pk=self.kwargs.get("pk"))
+
+    def form_valid(self, form):
+        messages.success(self.request, "Thesis deleted successfully.")
+        return super().form_valid(form)
 
 
 class AdminHomeView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):

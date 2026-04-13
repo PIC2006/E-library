@@ -6,7 +6,7 @@
         <div class="flex flex-wrap gap-2 text-xs uppercase tracking-[0.25em] text-cyan-200/70">
             <span>{{ thesis.course.name }}</span>
             <span>•</span>
-            <span>{{ thesis.year }}</span>
+            <span>{{ thesis.year|default:"Unknown year" }}</span>
             <span>•</span>
             <span>{{ thesis.status }}</span>
         </div>
@@ -17,6 +17,11 @@
         <div class="mt-8 flex flex-wrap gap-3">
             <a href="{% url 'thesis-pdf' thesis.pk %}" onclick="showToast('Opening PDF viewer', 'info')" class="rounded-full bg-cyan-400 px-5 py-2.5 font-semibold text-slate-950 hover:bg-cyan-300">📄 View PDF</a>
             <a href="{% url 'thesis-download' thesis.pk %}" class="js-download-confirm rounded-full border border-cyan-400/30 px-5 py-2.5 text-cyan-100 hover:bg-cyan-400/10">Download</a>
+            {% if can_manage %}
+                <span class="border-l border-cyan-400/20"></span>
+                <button type="button" onclick="openThesisModal('editThesisModal')" class="rounded-full border border-cyan-400/30 px-5 py-2.5 text-cyan-100 hover:bg-cyan-400/10">✏️ Edit</button>
+                <button type="button" onclick="openThesisModal('deleteThesisModal')" class="rounded-full border border-rose-400/30 px-5 py-2.5 text-rose-100 hover:bg-rose-400/10">🗑️ Delete</button>
+            {% endif %}
         </div>
 
         <div class="mt-8">
@@ -75,4 +80,93 @@
         </div>
     </aside>
 </div>
+
+{% if can_manage %}
+<div id="editThesisModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-md">
+    <div class="glass w-full max-w-4xl max-h-[90vh] overflow-y-auto rounded-3xl p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-[0.24em] text-cyan-200/70">Edit thesis</p>
+                <h2 class="mt-2 text-2xl font-bold text-white">Update thesis metadata</h2>
+                <p class="mt-2 text-sm text-slate-400">Changes are saved immediately and stay on this page.</p>
+            </div>
+            <button type="button" onclick="closeThesisModal('editThesisModal')" class="rounded-full border border-cyan-400/20 px-3 py-2 text-cyan-100 hover:bg-cyan-400/10">✕</button>
+        </div>
+
+        <form id="editThesisModalForm" method="post" action="{% url 'thesis-edit' thesis.pk %}" enctype="multipart/form-data" class="mt-6 grid gap-5" onsubmit="return submitThesisModalForm(this, 'Saving thesis...')">
+            {% csrf_token %}
+            {% for field in edit_form %}
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">{{ field.label }}</label>
+                    {{ field }}
+                    {% if field.help_text %}
+                        <p class="mt-1 text-xs text-slate-400">{{ field.help_text }}</p>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <p class="mt-1 text-sm text-rose-300">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+
+            <div class="flex flex-wrap gap-3 pt-2">
+                <button class="rounded-full bg-cyan-400 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-300" type="submit" data-loading-text="Saving thesis...">Save changes</button>
+                <button type="button" onclick="closeThesisModal('editThesisModal')" class="rounded-full border border-cyan-400/30 px-6 py-3 text-cyan-100 hover:bg-cyan-400/10">Cancel</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="deleteThesisModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-md">
+    <div class="glass w-full max-w-xl rounded-3xl p-6 sm:p-8">
+        <div class="flex items-start justify-between gap-4">
+            <div>
+                <p class="text-xs uppercase tracking-[0.24em] text-rose-200/70">Delete thesis</p>
+                <h2 class="mt-2 text-2xl font-bold text-white">Delete this thesis?</h2>
+            </div>
+            <button type="button" onclick="closeThesisModal('deleteThesisModal')" class="rounded-full border border-rose-400/30 px-3 py-2 text-rose-100 hover:bg-rose-400/10">✕</button>
+        </div>
+
+        <div class="mt-4 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+            This action is permanent and cannot be undone.
+        </div>
+
+        <form id="deleteThesisModalForm" method="post" action="{% url 'thesis-delete' thesis.pk %}" class="mt-6 flex flex-wrap gap-3" onsubmit="return submitThesisModalForm(this, 'Deleting thesis...')">
+            {% csrf_token %}
+            <button class="rounded-full bg-rose-500 px-6 py-3 font-semibold text-white hover:bg-rose-600" type="submit" data-loading-text="Deleting thesis...">Delete permanently</button>
+            <button type="button" onclick="closeThesisModal('deleteThesisModal')" class="rounded-full border border-cyan-400/30 px-6 py-3 text-cyan-100 hover:bg-cyan-400/10">Cancel</button>
+        </form>
+    </div>
+</div>
+
+<script>
+    function openThesisModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    function closeThesisModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (!modal) return;
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    function submitThesisModalForm(form, loadingText) {
+        const ok = lockFormSubmission(form, loadingText);
+        if (!ok) {
+            return false;
+        }
+        return true;
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeThesisModal('editThesisModal');
+            closeThesisModal('deleteThesisModal');
+        }
+    });
+</script>
+{% endif %}
 {% endblock %}
