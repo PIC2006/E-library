@@ -1,7 +1,6 @@
-[build]
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "python manage.py collectstatic --noinput && python manage.py migrate && gunicorn elibrary.wsgi:application"
+startCommand = "python manage.py collectstatic --noinput && python manage.py migrate && DJANGO_SUPERUSER_USERNAME=admin DJANGO_SUPERUSER_PASSWORD=admin123 DJANGO_SUPERUSER_EMAIL=admin@elibrary.com python manage.py createsuperuser --noinput && gunicorn elibrary.wsgi:application"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 10
