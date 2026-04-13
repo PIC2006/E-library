@@ -48,3 +48,9 @@ Scalable Django + DRF thesis repository with role-based access, PDF uploads, app
 ### Optional Environment Variables
 - `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` for background tasks.
 - S3 settings (`USE_S3=1`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_STORAGE_BUCKET_NAME`, etc.) for cloud media/static storage.
+
+### Railway Media Storage (if not using S3)
+- Attach a persistent volume in Railway and mount it to `/data`.
+- Set `DJANGO_MEDIA_ROOT=/data/media`.
+- Set `DJANGO_SERVE_MEDIA=1` (small deployments only; for larger scale prefer S3).
+- Set `DJANGO_DEBUG=0` in production.

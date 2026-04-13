@@ -339,6 +339,15 @@ class ThesisDownloadView(View):
 
     def get(self, request, *args, **kwargs):
         thesis = self.get_object()
+        if not thesis.pdf_file:
+            raise Http404("PDF file not found.")
+
+        try:
+            thesis.pdf_file.open("rb")
+        except FileNotFoundError:
+            logger.warning("Missing PDF file for thesis %s at %s", thesis.pk, thesis.pdf_file.name)
+            raise Http404("PDF file not found.")
+
         thesis.increment_download_count()
         Download.objects.create(
             thesis=thesis,
@@ -347,10 +356,6 @@ class ThesisDownloadView(View):
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
         )
 
-        if not thesis.pdf_file:
-            raise Http404("PDF file not found.")
-
-        thesis.pdf_file.open("rb")
         response = FileResponse(thesis.pdf_file, as_attachment=True, filename=thesis.pdf_file.name.split("/")[-1])
         response["Content-Disposition"] = f'attachment; filename="{thesis.pdf_file.name.split("/")[-1]}"'
         return response

@@ -1,3 +1,5 @@
+import os
+
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
@@ -13,6 +15,9 @@ urlpatterns = [
     path("service/search/", include("search.api_urls")),
 ]
 
-if settings.DEBUG:
+serve_media = settings.DEBUG or (not getattr(settings, "USE_S3", False) and os.getenv("DJANGO_SERVE_MEDIA", "1") == "1")
+if serve_media:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.BASE_DIR / "static")
