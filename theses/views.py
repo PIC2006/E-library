@@ -97,8 +97,14 @@ class ThesisListView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Generate list of years from oldest to newest
-        years = Thesis.objects.filter(is_public=True, status=Thesis.Status.APPROVED).values_list('year', flat=True).distinct().order_by('-year')
-        context['years_list'] = sorted(set(years), reverse=True)
+        years = (
+            Thesis.objects.filter(is_public=True, status=Thesis.Status.APPROVED)
+            .exclude(year__isnull=True)
+            .values_list('year', flat=True)
+            .distinct()
+            .order_by('-year')
+        )
+        context['years_list'] = list(years)
         return context
 
 
