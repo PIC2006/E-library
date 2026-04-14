@@ -140,7 +140,6 @@ class ThesisDetailView(DetailView):
         context["pdf_file_name"] = thesis.pdf_file.name.split("/")[-1] if thesis.pdf_file else "Unknown"
         context["pdf_preview_count"] = thesis.previews.count()
         context["pdf_extracted_chars"] = len(raw_text)
-
         size_label = "Unavailable"
         if thesis.pdf_file:
             try:
@@ -236,6 +235,7 @@ class ThesisEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
         
         self.object.authors.set(_get_or_create_authors(author_names))
         self.object.keywords.set(_get_or_create_keywords(keyword_names))
+        
         
         messages.success(self.request, "Thesis updated successfully.")
         return response

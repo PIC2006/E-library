@@ -88,8 +88,38 @@
 
                 <nav class="hidden items-center gap-2 text-sm text-slate-200 md:flex">
                     <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'home' %}">Home</a>
+                    {% for source in elibrary_external_sources %}
+                        {% if source.category == 'gdrive' %}
+                            <a class="rounded-full px-4 py-2 hover:bg-white/5 font-semibold text-cyan-200" href="{{ source.url }}" target="_blank" rel="noopener noreferrer">📂 {{ source.label }}</a>
+                        {% endif %}
+                    {% endfor %}
+                    <details class="relative">
+                        <summary class="list-none cursor-pointer rounded-full px-4 py-2 hover:bg-white/5">
+                            E-Library Sources
+                        </summary>
+                        <div class="glass absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto rounded-2xl border border-cyan-400/20 p-2">
+                            {% for source in elibrary_external_sources %}
+                                <a
+                                    class="block rounded-xl px-3 py-2 text-sm text-slate-100 hover:bg-cyan-400/10"
+                                    href="{{ source.url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {{ source.label }}
+                                </a>
+                            {% empty %}
+                                <p class="px-3 py-2 text-sm text-slate-400">No external sources configured yet.</p>
+                            {% endfor %}
+                            {% if is_admin_user %}
+                                <div class="mt-2 border-t border-cyan-400/10 pt-2">
+                                    <button type="button" class="block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-cyan-100 hover:bg-cyan-400/10" onclick="openSourceModal('free_elibrary')">+ Add Free E-Library</button>
+                                    <button type="button" class="mt-1 block w-full rounded-xl px-3 py-2 text-left text-sm font-semibold text-cyan-100 hover:bg-cyan-400/10" onclick="openSourceModal('gdrive')">+ Add G-Drive</button>
+                                </div>
+                            {% endif %}
+                        </div>
+                    </details>
                     {% if user.is_authenticated %}
-                        {% if user.is_staff or user.is_superuser or user.role == 'admin' %}
+                        {% if is_admin_user %}
                             <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'admin-home' %}">Staff Portal</a>
                             <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'thesis-upload' %}">Upload</a>
                         {% endif %}
@@ -131,6 +161,34 @@
         <div id="mobileMenu" class="hidden border-t border-cyan-400/10 bg-slate-950/95 md:hidden">
             <nav class="mx-auto grid max-w-7xl gap-2 px-4 py-4 sm:px-6">
                 <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'home' %}">Home</a>
+                {% for source in elibrary_external_sources %}
+                    {% if source.category == 'gdrive' %}
+                        <a class="rounded-xl px-4 py-2.5 text-sm font-semibold text-cyan-200 hover:bg-cyan-400/10" href="{{ source.url }}" target="_blank" rel="noopener noreferrer">📂 {{ source.label }}</a>
+                    {% endif %}
+                {% endfor %}
+                <div class="rounded-xl border border-cyan-400/15 bg-slate-900/50 px-4 py-2.5">
+                    <p class="text-xs uppercase tracking-[0.2em] text-cyan-200/70">E-Library Sources</p>
+                    <div class="mt-2 grid gap-1">
+                        {% for source in elibrary_external_sources %}
+                            <a
+                                class="rounded-lg px-2 py-2 text-sm text-slate-200 hover:bg-cyan-400/10"
+                                href="{{ source.url }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {{ source.label }}
+                            </a>
+                        {% empty %}
+                            <p class="px-2 py-1 text-xs text-slate-400">No external sources configured yet.</p>
+                        {% endfor %}
+                        {% if is_admin_user %}
+                            <div class="mt-2 border-t border-cyan-400/10 pt-2">
+                                <button type="button" class="block w-full rounded-lg px-2 py-2 text-left text-sm font-semibold text-cyan-100 hover:bg-cyan-400/10" onclick="openSourceModal('free_elibrary')">+ Add Free E-Library</button>
+                                <button type="button" class="mt-1 block w-full rounded-lg px-2 py-2 text-left text-sm font-semibold text-cyan-100 hover:bg-cyan-400/10" onclick="openSourceModal('gdrive')">+ Add G-Drive</button>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
                 {% if user.is_authenticated %}
                     {% if user.is_staff or user.is_superuser or user.role == 'admin' %}
                         <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'admin-home' %}">Staff Portal</a>
@@ -174,6 +232,48 @@
                     <option value="{{ item }}"></option>
                 {% endfor %}
             </datalist>
+        </div>
+    </div>
+
+    <div id="sourceModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-md">
+        <div class="glass w-full max-w-2xl rounded-3xl p-6 sm:p-8">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.28em] text-cyan-200/70">Add source link</p>
+                    <h2 class="mt-2 text-2xl font-bold text-white" id="sourceModalTitle">Add source link</h2>
+                    <p class="mt-2 text-sm text-slate-400">Add a free e-library link or a G-Drive manuscript link directly from the navbar.</p>
+                </div>
+                <button type="button" onclick="closeSourceModal()" class="rounded-full border border-cyan-400/20 px-3 py-2 text-cyan-100 hover:bg-cyan-400/10">✕</button>
+            </div>
+
+            <form method="post" action="{% url 'library-source-add' %}" class="mt-6 grid gap-4 sm:grid-cols-2">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <div class="sm:col-span-2">
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">Label</label>
+                    <input name="label" id="sourceLabelInput" placeholder="Example: Judiciary E-Library" class="mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none">
+                </div>
+                <div class="sm:col-span-2">
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">URL</label>
+                    <input name="url" required placeholder="https://..." class="mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">Category</label>
+                    <select name="category" id="sourceCategoryInput" class="mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white focus:border-cyan-300 focus:outline-none">
+                        <option value="free_elibrary">Free E-Library</option>
+                        <option value="gdrive">G-Drive</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">Sort order</label>
+                    <input type="number" name="sort_order" min="0" step="1" value="0" class="mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none">
+                </div>
+                <div class="sm:col-span-2 flex flex-wrap gap-3 pt-2">
+                    <button type="submit" class="rounded-full bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300">Save link</button>
+                    <button type="button" onclick="closeSourceModal()" class="rounded-full border border-cyan-400/30 px-5 py-3 text-cyan-100 hover:bg-cyan-400/10">Cancel</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -263,6 +363,37 @@
             showToast('Search modal closed', 'info');
         }
 
+        function openSourceModal(category = 'free_elibrary') {
+            const modal = document.getElementById('sourceModal');
+            const categoryInput = document.getElementById('sourceCategoryInput');
+            const title = document.getElementById('sourceModalTitle');
+            const labelInput = document.getElementById('sourceLabelInput');
+
+            if (categoryInput) {
+                categoryInput.value = category;
+            }
+
+            if (title) {
+                title.textContent = category === 'gdrive' ? 'Add G-Drive link' : 'Add Free E-Library link';
+            }
+
+            if (labelInput && !labelInput.value) {
+                labelInput.placeholder = category === 'gdrive' ? 'Example: Thesis G-Drive Folder' : 'Example: Judiciary E-Library';
+            }
+
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+            }
+        }
+
+        function closeSourceModal() {
+            const modal = document.getElementById('sourceModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
         function setupHeaderMenus() {
             const mobileMenuButton = document.getElementById('mobileMenuButton');
             const mobileMenu = document.getElementById('mobileMenu');
@@ -308,6 +439,7 @@
         document.addEventListener('keydown', function(event) {
             if (event.key === 'Escape') {
                 closeSearchModal();
+                closeSourceModal();
                 const profileMenu = document.getElementById('profileMenu');
                 const profileMenuButton = document.getElementById('profileMenuButton');
                 if (profileMenu && !profileMenu.classList.contains('hidden')) {
@@ -397,6 +529,63 @@
             });
         }
 
+        function setupSourceTypeFieldVisibility() {
+            const sourceTypeSelects = document.querySelectorAll('select[name="source_type"]');
+
+            sourceTypeSelects.forEach((select) => {
+                if (select.dataset.sourceTypeVisibilityReady === 'true') {
+                    return;
+                }
+                select.dataset.sourceTypeVisibilityReady = 'true';
+
+                const form = select.closest('form');
+                if (!form) {
+                    return;
+                }
+
+                const fieldsToToggle = [
+                    'title',
+                    'abstract',
+                    'pdf_file',
+                    'course',
+                    'year',
+                    'preview_page',
+                    'author_names',
+                    'keyword_names',
+                ];
+
+                const fieldNodes = fieldsToToggle
+                    .map((fieldName) => ({ fieldName, node: form.querySelector(`[data-form-field="${fieldName}"]`) }))
+                    .filter((item) => item.node);
+
+                if (!fieldNodes.length) {
+                    return;
+                }
+
+                const syncVisibility = () => {
+                    const isExternalOnly = select.value === 'gdrive' || select.value === 'free_elibrary';
+
+                    fieldNodes.forEach(({ fieldName, node }) => {
+                        const input = node.querySelector('input, textarea, select');
+                        if (!input) {
+                            return;
+                        }
+
+                        const shouldHide = isExternalOnly && fieldName !== 'source_type' && fieldName !== 'source_label' && fieldName !== 'source_url';
+                        node.classList.toggle('hidden', shouldHide);
+                        input.disabled = shouldHide;
+
+                        if (shouldHide && input.type === 'file') {
+                            input.value = '';
+                        }
+                    });
+                };
+
+                select.addEventListener('change', syncVisibility);
+                syncVisibility();
+            });
+        }
+
         function setupNumericPhoneValidation() {
             const phoneInputs = document.querySelectorAll('input[name="phone_number"]');
             phoneInputs.forEach((input) => {
@@ -474,6 +663,7 @@
             completeLoadingBar();
             setupHeaderMenus();
             setupPdfFileValidation();
+            setupSourceTypeFieldVisibility();
             setupNumericPhoneValidation();
             setupPasswordToggles();
             setupDownloadConfirmations();

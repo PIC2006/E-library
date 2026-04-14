@@ -1,15 +1,22 @@
+from django.contrib import messages
 from django.db import connection
 from django.db.models import Q
 from django.db.models.functions import Lower
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.shortcuts import render
+from django.shortcuts import redirect, render
+from django.urls import reverse
+from django.views import View
 from django.views.generic import ListView, TemplateView
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from rest_framework import permissions
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from theses.models import Thesis
 from theses.serializers import ThesisListSerializer
+
+from .forms import LibrarySourceForm
+from .models import LibrarySource
 
 
 class SearchView(ListView):
@@ -51,9 +58,38 @@ class SearchView(ListView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         # Generate list of years from oldest to newest
-        years = Thesis.objects.filter(is_public=True, status=Thesis.Status.APPROVED).values_list('year', flat=True).distinct().order_by('-year')
+        years = Thesis.objects.filter(
+            is_public=True,
+            status=Thesis.Status.APPROVED,
+            year__isnull=False,
+        ).values_list("year", flat=True).distinct().order_by("-year")
         context['years_list'] = sorted(set(years), reverse=True)
         return context
+
+
+class LibrarySourceCreateView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        user = self.request.user
+        return user.is_staff or user.is_superuser or getattr(user, "role", None) == "admin"
+
+    def post(self, request, *args, **kwargs):
+        form = LibrarySourceForm(request.POST)
+        next_url = request.POST.get("next") or request.META.get("HTTP_REFERER") or reverse("home")
+
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Source link added successfully.")
+        else:
+            for error in form.non_field_errors():
+                messages.error(request, error)
+            for field_name, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{field_name}: {error}")
+
+        return redirect(next_url)
+
+    def get(self, request, *args, **kwargs):
+        return redirect("home")
 
 
 class AdvancedSearchAPIView(APIView):

@@ -1,4 +1,9 @@
+from django.conf import settings
+from django.db.utils import OperationalError, ProgrammingError
+
 from theses.models import Thesis
+
+from .models import LibrarySource
 
 
 def search_ui_context(request):
@@ -33,7 +38,29 @@ def search_ui_context(request):
         if len(search_suggestions) >= 60:
             break
 
+    external_sources = []
+    try:
+        external_sources = [
+            {
+                "label": source.label,
+                "url": source.url,
+                "category": source.category,
+            }
+            for source in LibrarySource.objects.filter(is_active=True).order_by("sort_order", "label")
+        ]
+    except (OperationalError, ProgrammingError):
+        external_sources = []
+
+    if not external_sources:
+        external_sources = [item for item in getattr(settings, "ELIBRARY_SOURCE_LINKS", []) if item.get("url")]
+
+    is_admin_user = request.user.is_authenticated and (
+        request.user.is_staff or request.user.is_superuser or getattr(request.user, "role", None) == "admin"
+    )
+
     return {
         "search_course_options": courses,
         "search_suggestions": search_suggestions,
+        "elibrary_external_sources": external_sources,
+        "is_admin_user": is_admin_user,
     }

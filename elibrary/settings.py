@@ -8,7 +8,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-change-me")
 # Default DEBUG to off for safer production behavior.
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", "*").split(",") if host.strip()]
+_default_hosts = "localhost,127.0.0.1" if DEBUG else "*"
+ALLOWED_HOSTS = [host.strip() for host in os.getenv("DJANGO_ALLOWED_HOSTS", _default_hosts).split(",") if host.strip()]
 CSRF_TRUSTED_ORIGINS = [
     origin.strip() for origin in os.getenv("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if origin.strip()
 ]
@@ -101,7 +102,7 @@ AUTH_USER_MODEL = "accounts.User"
 LOGIN_URL = "admin-login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "home"
-X_FRAME_OPTIONS = "SAMEORIGIN"
+X_FRAME_OPTIONS = "DENY"
 
 # Upload tuning for large thesis PDFs: stream to temp files instead of keeping payloads in memory.
 FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", 1024 * 1024))
@@ -150,7 +151,61 @@ else:
 EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.console.EmailBackend")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", "noreply@elibrary.local")
 
-if not DEBUG:
+ELIBRARY_SOURCE_LINKS = [
+    {
+        "label": "Free E-Library",
+        "url": os.getenv("FREE_ELIBRARY_URL", "https://data.adb.org/dataset/green-and-blue-bond-impact-report"),
+    },
+    {
+        "label": "G-Drive Manuscripts",
+        "url": os.getenv("GDRIVE_LIBRARY_URL", ""),
+    },
+    {
+        "label": "OATD (Open Access Theses and Dissertations)",
+        "url": "https://oatd.org/",
+    },
+    {
+        "label": "NDLTD Global ETD Search",
+        "url": "https://ndltd.org/",
+    },
+    {
+        "label": "OpenThesis",
+        "url": "http://www.openthesis.org/",
+    },
+    {
+        "label": "ERIC Education Resources",
+        "url": "https://eric.ed.gov/",
+    },
+    {
+        "label": "CORE (Open Access Research)",
+        "url": "https://core.ac.uk/",
+    },
+    {
+        "label": "BASE Academic Search",
+        "url": "https://www.base-search.net/",
+    },
+    {
+        "label": "DOAJ Journals",
+        "url": "https://doaj.org/",
+    },
+    {
+        "label": "UNESCO Digital Library",
+        "url": "https://unesdoc.unesco.org/",
+    },
+    {
+        "label": "World Bank Open Knowledge Repository",
+        "url": "https://openknowledge.worldbank.org/",
+    },
+]
+
+ENABLE_SECURITY_HARDENING = os.getenv("DJANGO_ENABLE_SECURITY", "0") == "1"
+
+if not DEBUG and ENABLE_SECURITY_HARDENING:
     SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_SSL_REDIRECT = True
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = int(os.getenv("SECURE_HSTS_SECONDS", 31536000))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    X_FRAME_OPTIONS = "DENY"

@@ -18,6 +18,7 @@ class ThesisUploadForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
         for name, field in self.fields.items():
             field.widget.attrs.update(
                 {
@@ -27,8 +28,10 @@ class ThesisUploadForm(forms.ModelForm):
 
             if name == "pdf_file":
                 # Make PDF optional in edit mode
-                if not self.instance or not self.instance.pk:
+                is_editing = bool(self.instance and not self.instance._state.adding)
+                if not is_editing:
                     field.widget.attrs.update({"accept": ".pdf,application/pdf", "required": "required"})
+                    field.required = True
                 else:
                     field.widget.attrs.update({"accept": ".pdf,application/pdf"})
                     field.required = False
@@ -69,6 +72,13 @@ class ThesisUploadForm(forms.ModelForm):
             raise ValidationError("This PDF file has already been uploaded. Please upload a different file.")
 
         return pdf_file
+
+    def clean(self):
+        cleaned_data = super().clean()
+        is_editing = bool(self.instance and not self.instance._state.adding)
+        if not is_editing and not cleaned_data.get("pdf_file"):
+            self.add_error("pdf_file", "PDF file is required.")
+        return cleaned_data
 
     def clean_year(self):
         year = self.cleaned_data.get("year")

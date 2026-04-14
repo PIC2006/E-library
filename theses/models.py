@@ -72,7 +72,16 @@ class Thesis(models.Model):
     search_document = models.TextField(blank=True)
 
     def __str__(self):
-        return self.title
+        return self.display_title
+
+    @property
+    def display_title(self):
+        return self.title or self.source_label or self.source_url or "Untitled source"
+
+    def save(self, *args, **kwargs):
+        if not self.title:
+            self.title = self.source_label or self.source_url or "Untitled source"
+        super().save(*args, **kwargs)
 
     def approve(self, approved_by):
         self.status = self.Status.APPROVED
