@@ -51,7 +51,7 @@
             <h2 class="text-lg font-semibold text-white">Metadata</h2>
             <dl class="mt-4 space-y-3 text-sm text-slate-300">
                 <div class="flex justify-between gap-4"><dt>Course</dt><dd>{{ thesis.course.name }}</dd></div>
-                <div class="flex justify-between gap-4"><dt>Year</dt><dd>{{ thesis.year }}</dd></div>
+                <div class="flex justify-between gap-4"><dt>Year</dt><dd>{{ thesis.year|default:"Unknown year" }}</dd></div>
                 <div class="flex justify-between gap-4"><dt>Downloads</dt><dd>{{ thesis.download_count }}</dd></div>
                 <div class="flex justify-between gap-4"><dt>Uploaded by</dt><dd>{{ thesis.uploaded_by.username|default:"Unknown" }}</dd></div>
                 <div class="flex justify-between gap-4"><dt>File</dt><dd class="max-w-[12rem] truncate text-right" title="{{ pdf_file_name }}">{{ pdf_file_name }}</dd></div>

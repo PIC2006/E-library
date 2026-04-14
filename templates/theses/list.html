@@ -98,7 +98,7 @@
                     <div class="flex flex-wrap items-center gap-2 text-xs uppercase tracking-[0.2em] text-cyan-200/70">
                         <span>{{ thesis.course.name }}</span>
                         <span>•</span>
-                        <span>{{ thesis.year }}</span>
+                        <span>{{ thesis.year|default:"Unknown year" }}</span>
                         <span>•</span>
                         <span>{{ thesis.status }}</span>
                     </div>
