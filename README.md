@@ -52,20 +52,25 @@ Scalable Django + DRF thesis repository with role-based access, PDF uploads, app
 
 ### Cloudinary Setup (Recommended for Production)
 1. Create a Cloudinary account and copy your credentials from the dashboard.
-2. In Railway variables, set:
+2. In Railway, add these variables to the service:
    - `USE_CLOUDINARY=1`
-   - `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>`
-3. Keep `USE_S3=0` when Cloudinary is enabled.
-4. Deploy and run:
-   - `python manage.py migrate`
-5. Upload a thesis and verify:
+   - `USE_S3=0`
+   - `CLOUDINARY_CLOUD_NAME=<cloud_name>` or `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>`
+   - `CLOUDINARY_API_KEY=<api_key>` and `CLOUDINARY_API_SECRET=<api_secret>` if you are not using `CLOUDINARY_URL`
+3. Keep the Railway start command as-is so the app can initialize and migrate on deploy:
+   - `python manage.py collectstatic --noinput && python manage.py migrate && gunicorn elibrary.wsgi:application`
+4. Do not use Railway shell for Cloudinary setup; the environment variables are enough.
+5. Redeploy the service.
+6. Upload a thesis after deploy and verify:
    - `pdf_file` URLs are Cloudinary-hosted
    - preview image URLs are Cloudinary-hosted
+   - URLs should no longer resolve to `/media/...` on Railway
 
 Cloudinary notes:
 - The app fails fast at startup if `USE_CLOUDINARY=1` but credentials are missing.
 - Static files remain served by WhiteNoise; Cloudinary is used for media uploads.
-- Existing local media files are not auto-migrated. Re-upload old files or run a migration script.
+- Existing local media files are not auto-migrated. Re-upload old files or migrate them into Cloudinary.
+- If you previously deployed with local media, old `/media/...` records in the database may still point to missing files until you re-upload or migrate them.
 
 ### Railway Media Storage (if not using S3)
 - Attach a persistent volume in Railway and mount it to `/data`.
