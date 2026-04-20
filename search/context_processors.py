@@ -63,4 +63,5 @@ def search_ui_context(request):
         "search_suggestions": search_suggestions,
         "elibrary_external_sources": external_sources,
         "is_admin_user": is_admin_user,
+        "debug_enabled": settings.DEBUG,
     }

@@ -124,6 +124,8 @@
                             <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'thesis-upload' %}">Upload</a>
                         {% endif %}
                     {% else %}
+                        <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'login' %}" onclick="openSignInModal(); return false;">Sign In</a>
+                        <a class="rounded-full border border-cyan-400/30 px-4 py-2 text-cyan-100 hover:bg-cyan-400/10" href="{% url 'register' %}">Register</a>
                         <a class="rounded-full px-4 py-2 hover:bg-white/5" href="{% url 'admin-login' %}">Admin Login</a>
                     {% endif %}
                 </nav>
@@ -146,7 +148,10 @@
                                 <p class="mt-1 truncate text-sm text-slate-400">{{ user.email }}</p>
                             </div>
                             <div class="px-3 py-3">
-                                <a href="{% url 'admin-home' %}" class="block rounded-xl px-3 py-2.5 text-sm text-slate-200 hover:bg-cyan-400/10">Admin Home</a>
+                                <a href="{% url 'profile' %}" class="block rounded-xl px-3 py-2.5 text-sm text-slate-200 hover:bg-cyan-400/10">My Profile</a>
+                                {% if is_admin_user %}
+                                    <a href="{% url 'admin-home' %}" class="mt-1 block rounded-xl px-3 py-2.5 text-sm text-slate-200 hover:bg-cyan-400/10">Admin Home</a>
+                                {% endif %}
                                 <form method="post" action="{% url 'logout' %}">
                                     {% csrf_token %}
                                     <button type="submit" class="mt-1 w-full rounded-xl px-3 py-2.5 text-left text-sm text-rose-200 hover:bg-rose-500/10">Sign out</button>
@@ -194,7 +199,10 @@
                         <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'admin-home' %}">Staff Portal</a>
                         <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'thesis-upload' %}">Upload</a>
                     {% endif %}
+                    <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'profile' %}">My Profile</a>
                 {% else %}
+                    <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'login' %}" onclick="openSignInModal(); return false;">Sign In</a>
+                    <a class="rounded-xl px-4 py-2.5 text-sm text-cyan-100 hover:bg-cyan-400/10" href="{% url 'register' %}">Register</a>
                     <a class="rounded-xl px-4 py-2.5 text-sm text-slate-200 hover:bg-white/5" href="{% url 'admin-login' %}">Admin Login</a>
                 {% endif %}
             </nav>
@@ -276,6 +284,42 @@
             </form>
         </div>
     </div>
+
+    {% if not user.is_authenticated %}
+    <div id="signInModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-md">
+        <div class="glass w-full max-w-lg rounded-3xl p-6 sm:p-8">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.28em] text-cyan-200/70">Account access</p>
+                    <h2 class="mt-2 text-2xl font-bold text-white">Sign in to your account</h2>
+                    <p class="mt-2 text-sm text-slate-400">Guests can download up to 5 theses. Signed-in users get unlimited downloads and bookmarks.</p>
+                </div>
+                <button type="button" onclick="closeSignInModal()" class="rounded-full border border-cyan-400/20 px-3 py-2 text-cyan-100 hover:bg-cyan-400/10">✕</button>
+            </div>
+
+            <form method="post" action="{% url 'login' %}" class="mt-6 grid gap-4" onsubmit="return lockFormSubmission(this, 'Signing in...')">
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">Username</label>
+                    <input type="text" name="username" required autocomplete="username" class="mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none">
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">Password</label>
+                    <input type="password" name="password" required autocomplete="current-password" class="mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 pr-12 text-sm text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none">
+                </div>
+                <button type="submit" class="mt-2 rounded-full bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300" data-loading-text="Signing in...">
+                    Sign in
+                </button>
+            </form>
+
+            <p class="mt-6 text-sm text-slate-400">
+                New here?
+                <a href="{% url 'register' %}" class="font-semibold text-cyan-200 hover:text-cyan-100">Create an account</a>
+            </p>
+        </div>
+    </div>
+    {% endif %}
 
     <div id="toastStack" class="toast-stack fixed right-4 top-20 z-50 flex w-[min(92vw,26rem)] flex-col gap-3"></div>
 
@@ -394,6 +438,27 @@
             modal.classList.remove('flex');
         }
 
+        function openSignInModal() {
+            const modal = document.getElementById('signInModal');
+            if (!modal) {
+                window.location.href = "{% url 'login' %}";
+                return;
+            }
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            const usernameInput = modal.querySelector('input[name="username"]');
+            if (usernameInput) {
+                usernameInput.focus();
+            }
+        }
+
+        function closeSignInModal() {
+            const modal = document.getElementById('signInModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
         function setupHeaderMenus() {
             const mobileMenuButton = document.getElementById('mobileMenuButton');
             const mobileMenu = document.getElementById('mobileMenu');
@@ -440,6 +505,7 @@
             if (event.key === 'Escape') {
                 closeSearchModal();
                 closeSourceModal();
+                closeSignInModal();
                 const profileMenu = document.getElementById('profileMenu');
                 const profileMenuButton = document.getElementById('profileMenuButton');
                 if (profileMenu && !profileMenu.classList.contains('hidden')) {
@@ -454,6 +520,12 @@
         document.getElementById('searchModal')?.addEventListener('click', function(event) {
             if (event.target === this) {
                 closeSearchModal();
+            }
+        });
+
+        document.getElementById('signInModal')?.addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeSignInModal();
             }
         });
 

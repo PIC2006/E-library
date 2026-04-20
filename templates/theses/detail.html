@@ -15,8 +15,23 @@
         <p class="mt-6 whitespace-pre-line text-slate-200 leading-7">{{ thesis.abstract }}</p>
 
         <div class="mt-8 flex flex-wrap gap-3">
-            <a href="{% url 'thesis-pdf' thesis.pk %}" onclick="showToast('Opening PDF viewer', 'info')" class="rounded-full bg-cyan-400 px-5 py-2.5 font-semibold text-slate-950 hover:bg-cyan-300">📄 View PDF</a>
+            {% if debug_enabled %}
+                <a href="{% url 'thesis-pdf' thesis.pk %}" onclick="showToast('Opening PDF viewer', 'info')" class="rounded-full bg-cyan-400 px-5 py-2.5 font-semibold text-slate-950 hover:bg-cyan-300">📄 View PDF</a>
+            {% else %}
+                <span class="rounded-full border border-amber-400/30 bg-amber-500/10 px-5 py-2.5 text-amber-100">PDF viewer disabled in production</span>
+            {% endif %}
             <a href="{% url 'thesis-download' thesis.pk %}" class="js-download-confirm rounded-full border border-cyan-400/30 px-5 py-2.5 text-cyan-100 hover:bg-cyan-400/10">Download</a>
+            {% if user.is_authenticated %}
+                <form method="post" action="{% url 'thesis-bookmark-toggle' thesis.pk %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                    <button type="submit" class="rounded-full border border-cyan-400/30 px-5 py-2.5 text-cyan-100 hover:bg-cyan-400/10">
+                        {% if is_bookmarked %}Remove bookmark{% else %}Bookmark{% endif %}
+                    </button>
+                </form>
+            {% else %}
+                <a href="{% url 'login' %}?next={{ request.get_full_path|urlencode }}" onclick="openSignInModal(); return false;" class="rounded-full border border-cyan-400/30 px-5 py-2.5 text-cyan-100 hover:bg-cyan-400/10">Sign in to bookmark</a>
+            {% endif %}
             {% if can_manage %}
                 <span class="border-l border-cyan-400/20"></span>
                 <button type="button" onclick="openThesisModal('editThesisModal')" class="rounded-full border border-cyan-400/30 px-5 py-2.5 text-cyan-100 hover:bg-cyan-400/10">✏️ Edit</button>
@@ -24,26 +39,32 @@
             {% endif %}
         </div>
 
-        <div class="mt-8">
-            <h2 class="text-lg font-semibold text-white">Embedded PDF</h2>
-            <div id="embeddedPdf" class="mt-4 overflow-hidden rounded-2xl border border-cyan-400/15 bg-slate-950/40">
-                <iframe src="{{ thesis.pdf_file.url }}" class="h-[720px] w-full bg-white" title="PDF preview for {{ thesis.title }}"></iframe>
+        {% if debug_enabled %}
+            <div class="mt-8">
+                <h2 class="text-lg font-semibold text-white">Embedded PDF</h2>
+                <div id="embeddedPdf" class="mt-4 overflow-hidden rounded-2xl border border-cyan-400/15 bg-slate-950/40">
+                    <iframe src="{{ thesis.pdf_file.url }}" class="h-[720px] w-full bg-white" title="PDF preview for {{ thesis.title }}"></iframe>
+                </div>
             </div>
-        </div>
 
-        <div class="mt-8">
-            <h2 class="text-lg font-semibold text-white">Preview pages</h2>
-            <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {% for preview in thesis.previews.all %}
-                    <a href="{{ preview.preview_file.url }}" target="_blank" class="overflow-hidden rounded-2xl border border-cyan-400/15 bg-slate-950/40">
-                        <img src="{{ preview.preview_file.url }}" alt="Page {{ preview.page_number }} preview" class="h-56 w-full object-cover">
-                        <div class="px-4 py-3 text-sm text-slate-300">Page {{ preview.page_number }}</div>
-                    </a>
-                {% empty %}
-                    <div class="rounded-2xl border border-cyan-400/15 bg-slate-950/40 p-4 text-sm text-slate-400">Preview images will appear after processing.</div>
-                {% endfor %}
+            <div class="mt-8">
+                <h2 class="text-lg font-semibold text-white">Preview pages</h2>
+                <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                    {% for preview in preview_items %}
+                        <a href="{{ preview.preview_file.url }}" target="_blank" class="overflow-hidden rounded-2xl border border-cyan-400/15 bg-slate-950/40">
+                            <img src="{{ preview.preview_file.url }}" alt="Page {{ preview.page_number }} preview" class="h-56 w-full object-cover">
+                            <div class="px-4 py-3 text-sm text-slate-300">Page {{ preview.page_number }}</div>
+                        </a>
+                    {% empty %}
+                        <div class="rounded-2xl border border-cyan-400/15 bg-slate-950/40 p-4 text-sm text-slate-400">Preview images will appear after processing.</div>
+                    {% endfor %}
+                </div>
             </div>
-        </div>
+        {% else %}
+            <div class="mt-8 rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+                PDF preview and generated images are disabled in production.
+            </div>
+        {% endif %}
     </section>
 
     <aside class="space-y-6">

@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Register | E-Library{% endblock %}
+{% block content %}
+<div class="mx-auto max-w-2xl">
+    <section class="glass rounded-3xl p-8">
+        <p class="text-xs uppercase tracking-[0.24em] text-cyan-200/70">New account</p>
+        <h1 class="mt-2 text-3xl font-bold text-white">Create your E-Library account</h1>
+        <p class="mt-3 text-sm text-slate-400">Registration unlocks unlimited thesis downloads and your personal bookmark list.</p>
+
+        <form method="post" class="mt-6 grid gap-4 sm:grid-cols-2">
+            {% csrf_token %}
+
+            {% if form.non_field_errors %}
+                <div class="sm:col-span-2 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                    {{ form.non_field_errors.0 }}
+                </div>
+            {% endif %}
+
+            {% for field in form %}
+                <div class="{% if field.name == 'department' or field.name == 'phone_number' %}sm:col-span-1{% else %}sm:col-span-1{% endif %}">
+                    <label class="mb-2 block text-sm font-medium text-cyan-100">{{ field.label }}</label>
+                    {{ field }}
+                    {% for error in field.errors %}
+                        <p class="mt-1 text-xs text-rose-200">{{ error }}</p>
+                    {% endfor %}
+                    {% if field.help_text %}
+                        {% if field.name == 'username' or field.name == 'password1' or field.name == 'password2' %}
+                            <p class="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{{ field.help_text|safe }}</p>
+                        {% else %}
+                            <p class="mt-1 text-xs text-slate-400">{{ field.help_text|safe }}</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+            {% endfor %}
+
+            <div class="sm:col-span-2">
+                <button type="submit" class="mt-2 rounded-full bg-cyan-400 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-300">
+                    Create account
+                </button>
+            </div>
+        </form>
+
+        <p class="mt-6 text-sm text-slate-400">
+            Already registered?
+            <a href="{% url 'login' %}" class="font-semibold text-cyan-200 hover:text-cyan-100">Sign in</a>
+        </p>
+    </section>
+</div>
+{% endblock %}

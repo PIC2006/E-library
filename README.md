@@ -5,7 +5,8 @@ Scalable Django + DRF thesis repository with role-based access, PDF uploads, app
 ## Stack
 - Django + Django REST Framework
 - PostgreSQL-ready settings with SQLite fallback
-- AWS S3-compatible storage via django-storages
+- Cloudinary media storage (production-ready)
+- AWS S3-compatible storage via django-storages (optional alternative)
 - Celery + Redis
 - Tailwind CSS templates
 
@@ -17,7 +18,7 @@ Scalable Django + DRF thesis repository with role-based access, PDF uploads, app
 ## Run
 1. Create and activate a Python environment.
 2. Install dependencies with `pip install -r requirements.txt`.
-3. Set `DJANGO_SECRET_KEY` and optional PostgreSQL, Redis, and S3 environment variables.
+3. Set `DJANGO_SECRET_KEY` and optional PostgreSQL, Redis, and media-storage environment variables.
 4. Run migrations and start the server:
    - `python manage.py makemigrations`
    - `python manage.py migrate`
@@ -48,6 +49,23 @@ Scalable Django + DRF thesis repository with role-based access, PDF uploads, app
 ### Optional Environment Variables
 - `CELERY_BROKER_URL` and `CELERY_RESULT_BACKEND` for background tasks.
 - S3 settings (`USE_S3=1`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_STORAGE_BUCKET_NAME`, etc.) for cloud media/static storage.
+
+### Cloudinary Setup (Recommended for Production)
+1. Create a Cloudinary account and copy your credentials from the dashboard.
+2. In Railway variables, set:
+   - `USE_CLOUDINARY=1`
+   - `CLOUDINARY_URL=cloudinary://<api_key>:<api_secret>@<cloud_name>`
+3. Keep `USE_S3=0` when Cloudinary is enabled.
+4. Deploy and run:
+   - `python manage.py migrate`
+5. Upload a thesis and verify:
+   - `pdf_file` URLs are Cloudinary-hosted
+   - preview image URLs are Cloudinary-hosted
+
+Cloudinary notes:
+- The app fails fast at startup if `USE_CLOUDINARY=1` but credentials are missing.
+- Static files remain served by WhiteNoise; Cloudinary is used for media uploads.
+- Existing local media files are not auto-migrated. Re-upload old files or run a migration script.
 
 ### Railway Media Storage (if not using S3)
 - Attach a persistent volume in Railway and mount it to `/data`.

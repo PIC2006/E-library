@@ -33,9 +33,12 @@
     <section class="grid gap-8 lg:grid-cols-[1.2fr_0.8fr]">
         <div class="glass rounded-3xl p-8">
             <div class="flex flex-col gap-4">
-                <div>
-                    <h2 class="text-2xl font-bold text-white">Approved Thesis</h2>
-                    <p class="mt-2 text-sm text-slate-400">Search and filter approved records.</p>
+                <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                        <h2 class="text-2xl font-bold text-white">Approved Thesis</h2>
+                        <p class="mt-2 text-sm text-slate-400">Search and filter approved records.</p>
+                    </div>
+                    <button type="submit" class="rounded-full border border-rose-400/30 px-4 py-2 text-sm font-semibold text-rose-100 hover:bg-rose-500/10" onclick="return confirm('Delete selected theses permanently?')">Bulk delete selected</button>
                 </div>
                 <form method="get" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <input name="q" value="{{ admin_query }}" placeholder="Search by title, author, key..." class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500">
@@ -50,25 +53,45 @@
                 </form>
             </div>
 
-            <div class="mt-6 max-h-[62vh] overflow-y-auto pr-2 space-y-4">
-                {% for thesis in approved_theses %}
-                    <div class="rounded-2xl border border-cyan-400/15 bg-slate-950/40 p-5">
-                        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                            <div>
-                                <h3 class="font-semibold text-white">{{ thesis.title }}</h3>
-                                <p class="mt-1 text-sm text-slate-400">{{ thesis.course.name }} • {{ thesis.year|default:"Unknown year" }}</p>
-                                <p class="mt-2 text-xs text-slate-500">Authors: {% for author in thesis.authors.all %}{{ author.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+            <form method="post" action="{% url 'thesis-bulk-delete' %}" class="mt-6">
+                {% csrf_token %}
+                <p class="pb-4 text-sm text-slate-400">Select theses to delete. This permanently removes the thesis records and their stored files.</p>
+
+                <div class="mt-2 max-h-[62vh] overflow-y-auto pr-2 space-y-4">
+                    {% for thesis in approved_theses %}
+                        <label class="block cursor-pointer rounded-2xl border border-cyan-400/15 bg-slate-950/40 p-5 transition hover:border-cyan-300/40">
+                            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                <div class="flex items-start gap-3">
+                                    <input type="checkbox" name="thesis_ids" value="{{ thesis.pk }}" class="mt-1 h-4 w-4 rounded border-cyan-400/40 bg-slate-950/70 text-cyan-400 focus:ring-cyan-300">
+                                    <div>
+                                        <h3 class="font-semibold text-white">{{ thesis.title }}</h3>
+                                        <p class="mt-1 text-sm text-slate-400">{{ thesis.course.name }} • {{ thesis.year|default:"Unknown year" }}</p>
+                                        <p class="mt-2 text-xs text-slate-500">Authors: {% for author in thesis.authors.all %}{{ author.full_name }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+                                    </div>
+                                </div>
+                                <div class="flex flex-wrap gap-2">
+                                    <a href="{% url 'thesis-detail' thesis.pk %}" class="rounded-full border border-cyan-400/20 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10">Open</a>
+                                    <button
+                                        type="submit"
+                                        formmethod="post"
+                                        formaction="{% url 'thesis-process-later' %}"
+                                        name="thesis_id"
+                                        value="{{ thesis.pk }}"
+                                        class="rounded-full border border-emerald-400/30 px-4 py-2 text-sm font-semibold text-emerald-100 hover:bg-emerald-500/10"
+                                    >
+                                        Process PDF later
+                                    </button>
+                                    {% if debug_enabled %}
+                                        <a href="{% url 'thesis-pdf' thesis.pk %}" class="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300">View PDF</a>
+                                    {% endif %}
+                                </div>
                             </div>
-                            <div class="flex flex-wrap gap-2">
-                                <a href="{% url 'thesis-detail' thesis.pk %}" class="rounded-full border border-cyan-400/20 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10">Open</a>
-                                <a href="{% url 'thesis-pdf' thesis.pk %}" class="rounded-full bg-cyan-400 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300">View PDF</a>
-                            </div>
-                        </div>
-                    </div>
-                {% empty %}
-                    <p class="text-slate-300">No approved thesis matches your search.</p>
-                {% endfor %}
-            </div>
+                        </label>
+                    {% empty %}
+                        <p class="text-slate-300">No approved thesis matches your search.</p>
+                    {% endfor %}
+                </div>
+            </form>
         </div>
 
         <div class="space-y-8">

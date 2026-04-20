@@ -2,8 +2,15 @@ from pathlib import Path
 import os
 
 import dj_database_url
+from django.core.exceptions import ImproperlyConfigured
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+USE_CLOUDINARY = os.getenv("USE_CLOUDINARY", "0") == "1"
+USE_S3 = os.getenv("USE_S3", "0") == "1"
+
+if USE_CLOUDINARY and USE_S3:
+    raise ImproperlyConfigured("Enable only one media backend: set either USE_CLOUDINARY=1 or USE_S3=1, not both.")
 
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-change-me")
 # Default DEBUG to off for safer production behavior.
@@ -28,6 +35,16 @@ INSTALLED_APPS = [
     "theses",
     "search",
 ]
+
+if USE_CLOUDINARY:
+    try:
+        import cloudinary  # noqa: F401
+    except ImportError as exc:
+        raise ImproperlyConfigured(
+            "USE_CLOUDINARY=1 requires packages 'cloudinary' and 'django-cloudinary-storage'."
+        ) from exc
+
+    INSTALLED_APPS += ["cloudinary_storage", "cloudinary"]
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -99,7 +116,7 @@ else:
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "accounts.User"
-LOGIN_URL = "admin-login"
+LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "home"
 LOGOUT_REDIRECT_URL = "home"
 X_FRAME_OPTIONS = "DENY"
@@ -131,8 +148,21 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
-USE_S3 = os.getenv("USE_S3", "0") == "1"
-if USE_S3:
+if USE_CLOUDINARY:
+    cloudinary_url = os.getenv("CLOUDINARY_URL", "").strip()
+    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+    api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
+    api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
+    if not cloudinary_url and not (cloud_name and api_key and api_secret):
+        raise ImproperlyConfigured(
+            "Cloudinary is enabled but credentials are missing. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME/CLOUDINARY_API_KEY/CLOUDINARY_API_SECRET."
+        )
+
+    STORAGES = {
+        "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
+        "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+    }
+elif USE_S3:
     AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
     AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")

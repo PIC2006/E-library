@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db.models import Count, Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
@@ -72,7 +73,10 @@ class ThesisViewSet(viewsets.ModelViewSet):
 			ip_address=request.META.get("REMOTE_ADDR"),
 			user_agent=request.META.get("HTTP_USER_AGENT", ""),
 		)
-		return Response({"download": DownloadSerializer(download).data, "file_url": thesis.pdf_file.url})
+		payload = {"download": DownloadSerializer(download).data}
+		if settings.DEBUG:
+			payload["file_url"] = thesis.pdf_file.url
+		return Response(payload)
 
 	@action(detail=True, methods=["post"], permission_classes=[permissions.IsAuthenticated])
 	def approve(self, request, pk=None):

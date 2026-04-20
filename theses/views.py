@@ -1,9 +1,10 @@
-import threading
 import logging
 import hashlib
+import threading
+from urllib.parse import quote
 
 from django.contrib import messages
-from django.db import transaction
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
@@ -11,17 +12,25 @@ from django.db import models
 from django.db.models import Count
 from django.http import FileResponse, Http404
 from django.shortcuts import get_object_or_404, redirect
-from django.urls import reverse_lazy
+from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views import View
 from django.views.generic import CreateView, DeleteView, DetailView, ListView, TemplateView, UpdateView
 
 from .forms import ThesisUploadForm
-from .models import Author, Download, Keyword, Thesis
-from .tasks import build_thesis_previews, extract_thesis_text, process_thesis_upload
+from .models import Author, Bookmark, Download, Keyword, Thesis
+from .tasks import process_thesis_upload
 
 
 logger = logging.getLogger(__name__)
+GUEST_DOWNLOAD_LIMIT = 5
+
+
+def _get_client_ip(request):
+    forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR", "")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
 
 
 def _calculate_file_hash(pdf_file):
@@ -32,28 +41,6 @@ def _calculate_file_hash(pdf_file):
         hash_obj.update(chunk)
     pdf_file.seek(0)
     return hash_obj.hexdigest()
-
-
-def _process_upload_background(thesis_id):
-    thesis = Thesis.objects.get(pk=thesis_id)
-    extract_thesis_text(thesis)
-    build_thesis_previews(thesis)
-
-
-def queue_or_process_thesis_upload(thesis):
-    thesis_id = str(thesis.id)
-
-    def _enqueue_processing():
-        try:
-            process_thesis_upload.delay(thesis_id)
-        except Exception:
-            # Keep request fast if broker is unavailable; process in background thread.
-            logger.exception("Celery broker unavailable while queuing thesis upload %s; using thread fallback", thesis_id)
-            threading.Thread(target=_process_upload_background, args=(thesis.id,), daemon=True).start()
-
-    transaction.on_commit(_enqueue_processing)
-
-
 def _get_or_create_authors(author_names):
     if not author_names:
         return []
@@ -83,6 +70,23 @@ def _get_or_create_keywords(keyword_names):
 
     keyword_map = {keyword.name: keyword for keyword in Keyword.objects.filter(name__in=unique_names)}
     return [keyword_map[name] for name in unique_names if name in keyword_map]
+
+
+def _delete_thesis_media(thesis):
+    if thesis.pdf_file:
+        thesis.pdf_file.delete(save=False)
+
+    for preview in thesis.previews.all():
+        if preview.preview_file:
+            preview.preview_file.delete(save=False)
+
+
+def _enqueue_pdf_processing(thesis_id):
+    try:
+        process_thesis_upload.delay(str(thesis_id))
+    except Exception:
+        logger.exception("Celery broker unavailable while processing thesis %s; using thread fallback", thesis_id)
+        threading.Thread(target=process_thesis_upload, args=(str(thesis_id),), daemon=True).start()
 
 
 class ThesisListView(ListView):
@@ -137,6 +141,7 @@ class ThesisDetailView(DetailView):
                 },
             )
         context["can_manage"] = can_manage
+        context["is_bookmarked"] = user.is_authenticated and Bookmark.objects.filter(user=user, thesis=thesis).exists()
 
         raw_text = (thesis.search_document or "").strip()
         normalized_text = " ".join(raw_text.split())
@@ -144,7 +149,13 @@ class ThesisDetailView(DetailView):
         context["pdf_excerpt_available"] = bool(context["pdf_intro"])
 
         context["pdf_file_name"] = thesis.pdf_file.name.split("/")[-1] if thesis.pdf_file else "Unknown"
-        context["pdf_preview_count"] = thesis.previews.count()
+        preview_items = [
+            preview
+            for preview in thesis.previews.all()
+            if preview.preview_file and preview.preview_file.storage.exists(preview.preview_file.name)
+        ]
+        context["preview_items"] = preview_items
+        context["pdf_preview_count"] = len(preview_items)
         context["pdf_extracted_chars"] = len(raw_text)
         size_label = "Unavailable"
         if thesis.pdf_file:
@@ -164,6 +175,11 @@ class ThesisPDFView(DetailView):
     model = Thesis
     template_name = "theses/pdf_view.html"
     context_object_name = "thesis"
+
+    def dispatch(self, request, *args, **kwargs):
+        if not settings.DEBUG:
+            raise Http404("PDF viewer is disabled outside debug mode.")
+        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = Thesis.objects.select_related("course", "uploaded_by", "approved_by").prefetch_related("authors", "keywords", "previews")
@@ -204,7 +220,6 @@ class ThesisUploadView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
 
         self.object.authors.set(_get_or_create_authors(author_names))
         self.object.keywords.set(_get_or_create_keywords(keyword_names))
-        queue_or_process_thesis_upload(self.object)
         messages.success(self.request, "Thesis uploaded and published.")
         return response
 
@@ -264,8 +279,48 @@ class ThesisDeleteView(LoginRequiredMixin, UserPassesTestMixin, DeleteView):
         return redirect("thesis-detail", pk=self.kwargs.get("pk"))
 
     def form_valid(self, form):
+        thesis = self.get_object()
+        _delete_thesis_media(thesis)
         messages.success(self.request, "Thesis deleted successfully.")
         return super().form_valid(form)
+
+
+class ThesisBulkDeleteView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        return self.request.user.is_staff or self.request.user.is_superuser or getattr(self.request.user, "role", None) == "admin"
+
+    def post(self, request, *args, **kwargs):
+        thesis_ids = request.POST.getlist("thesis_ids")
+        if not thesis_ids:
+            messages.warning(request, "Select at least one thesis to delete.")
+            return redirect("admin-home")
+
+        theses = Thesis.objects.filter(pk__in=thesis_ids)
+        deleted_count = 0
+
+        for thesis in theses:
+            _delete_thesis_media(thesis)
+            thesis.delete()
+            deleted_count += 1
+
+        messages.success(request, f"Deleted {deleted_count} thesis record(s).")
+        return redirect("admin-home")
+
+
+class ThesisProcessLaterView(LoginRequiredMixin, UserPassesTestMixin, View):
+    def test_func(self):
+        return self.request.user.is_staff or self.request.user.is_superuser or getattr(self.request.user, "role", None) == "admin"
+
+    def post(self, request, *args, **kwargs):
+        thesis_id = request.POST.get("thesis_id")
+        if not thesis_id:
+            messages.warning(request, "No thesis selected for processing.")
+            return redirect("admin-home")
+
+        thesis = get_object_or_404(Thesis, pk=thesis_id)
+        _enqueue_pdf_processing(thesis.pk)
+        messages.success(request, f"Queued PDF processing for: {thesis.title}")
+        return redirect("admin-home")
 
 
 class AdminHomeView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
@@ -348,6 +403,20 @@ class ThesisDownloadView(View):
         if not thesis.pdf_file:
             raise Http404("PDF file not found.")
 
+        client_ip = _get_client_ip(request)
+        if not request.user.is_authenticated:
+            if client_ip:
+                anonymous_downloads = Download.objects.filter(user__isnull=True, ip_address=client_ip).count()
+            else:
+                anonymous_downloads = request.session.get("guest_download_count", 0)
+            if anonymous_downloads >= GUEST_DOWNLOAD_LIMIT:
+                messages.warning(
+                    request,
+                    "Guest download limit reached (5 theses). Sign in or register for unlimited downloads.",
+                )
+                login_url = f"{reverse('login')}?next={quote(request.get_full_path())}"
+                return redirect(login_url)
+
         try:
             thesis.pdf_file.open("rb")
         except FileNotFoundError:
@@ -358,10 +427,29 @@ class ThesisDownloadView(View):
         Download.objects.create(
             thesis=thesis,
             user=request.user if request.user.is_authenticated else None,
-            ip_address=request.META.get("REMOTE_ADDR"),
+            ip_address=client_ip,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
         )
+
+        if not request.user.is_authenticated and not client_ip:
+            request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
 
         response = FileResponse(thesis.pdf_file, as_attachment=True, filename=thesis.pdf_file.name.split("/")[-1])
         response["Content-Disposition"] = f'attachment; filename="{thesis.pdf_file.name.split("/")[-1]}"'
         return response
+
+
+class ThesisBookmarkToggleView(LoginRequiredMixin, View):
+    def post(self, request, *args, **kwargs):
+        thesis = get_object_or_404(Thesis, pk=self.kwargs["pk"], is_public=True, status=Thesis.Status.APPROVED)
+        bookmark, created = Bookmark.objects.get_or_create(user=request.user, thesis=thesis)
+        if not created:
+            bookmark.delete()
+            messages.info(request, "Removed from your bookmarks.")
+        else:
+            messages.success(request, "Saved to your bookmarks.")
+
+        next_url = request.POST.get("next")
+        if next_url:
+            return redirect(next_url)
+        return redirect("thesis-detail", pk=thesis.pk)
