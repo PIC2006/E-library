@@ -2,7 +2,6 @@ import logging
 import hashlib
 import os
 import threading
-import urllib.request
 from urllib.parse import quote
 
 from django.contrib import messages
@@ -12,7 +11,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Count
-from django.http import FileResponse, Http404, StreamingHttpResponse
+from django.http import FileResponse, Http404, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -440,16 +439,6 @@ class ThesisDownloadView(View):
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
             return response
 
-        file_url = thesis.pdf_file.url
-        if file_url.startswith("/"):
-            file_url = request.build_absolute_uri(file_url)
-
-        try:
-            remote_file = urllib.request.urlopen(file_url)
-        except Exception:
-            logger.exception("Missing or inaccessible PDF file for thesis %s at %s", thesis.pk, thesis.pdf_file.name)
-            raise Http404("PDF file not found.")
-
         thesis.increment_download_count()
         Download.objects.create(
             thesis=thesis,
@@ -461,17 +450,11 @@ class ThesisDownloadView(View):
         if not request.user.is_authenticated and not client_ip:
             request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
 
-        def _stream_remote_file(handle):
-            with handle:
-                while True:
-                    chunk = handle.read(8192)
-                    if not chunk:
-                        break
-                    yield chunk
+        file_url = thesis.pdf_file.url
+        if file_url.startswith("/"):
+            file_url = request.build_absolute_uri(file_url)
 
-        response = StreamingHttpResponse(_stream_remote_file(remote_file), content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="{file_name}"'
-        return response
+        return HttpResponseRedirect(file_url)
 
 
 class ThesisBookmarkToggleView(LoginRequiredMixin, View):
