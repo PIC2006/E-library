@@ -140,6 +140,9 @@ X_FRAME_OPTIONS = "DENY"
 FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", 1024 * 1024))
 DATA_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("DATA_UPLOAD_MAX_MEMORY_SIZE", 50 * 1024 * 1024))
 
+# If a thesis PDF exceeds this size, download view falls back to a direct file URL redirect.
+THESIS_DOWNLOAD_PROXY_MAX_MB = int(os.getenv("THESIS_DOWNLOAD_PROXY_MAX_MB", 25))
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",

@@ -402,6 +402,13 @@ class ThesisDownloadView(View):
         if not thesis.pdf_file:
             raise Http404("PDF file not found.")
 
+        max_proxy_size = max(0, int(getattr(settings, "THESIS_DOWNLOAD_PROXY_MAX_MB", 25))) * 1024 * 1024
+
+        try:
+            file_size = thesis.pdf_file.size
+        except Exception:
+            file_size = None
+
         client_ip = _get_client_ip(request)
         if not request.user.is_authenticated:
             if client_ip:
@@ -417,6 +424,27 @@ class ThesisDownloadView(View):
                 return redirect(login_url)
 
         file_name = thesis.pdf_file.name.split("/")[-1]
+        file_url = thesis.pdf_file.url
+        if file_url.startswith("/"):
+            file_url = request.build_absolute_uri(file_url)
+
+        # Large files are served directly by storage/CDN to avoid app-level streaming limits.
+        if file_size is not None and max_proxy_size and file_size > max_proxy_size:
+            thesis.increment_download_count()
+            Download.objects.create(
+                thesis=thesis,
+                user=request.user if request.user.is_authenticated else None,
+                ip_address=client_ip,
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            )
+            if not request.user.is_authenticated and not client_ip:
+                request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
+
+            messages.info(
+                request,
+                "This file is large, so download is served directly from storage for better reliability.",
+            )
+            return HttpResponseRedirect(file_url)
 
         try:
             file_path = thesis.pdf_file.path
@@ -449,10 +477,6 @@ class ThesisDownloadView(View):
 
         if not request.user.is_authenticated and not client_ip:
             request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
-
-        file_url = thesis.pdf_file.url
-        if file_url.startswith("/"):
-            file_url = request.build_absolute_uri(file_url)
 
         return HttpResponseRedirect(file_url)
 
