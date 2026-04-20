@@ -321,6 +321,26 @@
     </div>
     {% endif %}
 
+    <div id="pdfUploadLimitModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-950/80 px-4 py-8 backdrop-blur-md">
+        <div class="glass w-full max-w-lg rounded-3xl p-6 sm:p-8">
+            <div class="flex items-start justify-between gap-4">
+                <div>
+                    <p class="text-xs uppercase tracking-[0.28em] text-amber-200/70">Upload warning</p>
+                    <h2 class="mt-2 text-2xl font-bold text-white" id="pdfUploadLimitModalTitle">PDF is too large</h2>
+                </div>
+                <button type="button" onclick="closePdfUploadLimitModal()" class="rounded-full border border-amber-400/20 px-3 py-2 text-amber-100 hover:bg-amber-400/10">✕</button>
+            </div>
+
+            <p id="pdfUploadLimitModalMessage" class="mt-4 rounded-2xl border border-amber-400/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-100">
+                This PDF exceeds the upload limit. Compress the file first, then upload again.
+            </p>
+
+            <div class="mt-6 flex flex-wrap gap-3">
+                <button type="button" onclick="closePdfUploadLimitModal()" class="rounded-full bg-amber-400 px-5 py-3 font-semibold text-slate-950 hover:bg-amber-300">Okay</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toastStack" class="toast-stack fixed right-4 top-20 z-50 flex w-[min(92vw,26rem)] flex-col gap-3"></div>
 
     <main class="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
@@ -459,6 +479,35 @@
             modal.classList.remove('flex');
         }
 
+        function openPdfUploadLimitModal(message, title = 'PDF is too large') {
+            const modal = document.getElementById('pdfUploadLimitModal');
+            const titleNode = document.getElementById('pdfUploadLimitModalTitle');
+            const messageNode = document.getElementById('pdfUploadLimitModalMessage');
+
+            if (!modal) {
+                showToast(message, 'warning');
+                return;
+            }
+
+            if (titleNode) {
+                titleNode.textContent = title;
+            }
+
+            if (messageNode) {
+                messageNode.textContent = message;
+            }
+
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closePdfUploadLimitModal() {
+            const modal = document.getElementById('pdfUploadLimitModal');
+            if (!modal) return;
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
         function setupHeaderMenus() {
             const mobileMenuButton = document.getElementById('mobileMenuButton');
             const mobileMenu = document.getElementById('mobileMenu');
@@ -506,6 +555,7 @@
                 closeSearchModal();
                 closeSourceModal();
                 closeSignInModal();
+                closePdfUploadLimitModal();
                 const profileMenu = document.getElementById('profileMenu');
                 const profileMenuButton = document.getElementById('profileMenuButton');
                 if (profileMenu && !profileMenu.classList.contains('hidden')) {
@@ -526,6 +576,12 @@
         document.getElementById('signInModal')?.addEventListener('click', function(event) {
             if (event.target === this) {
                 closeSignInModal();
+            }
+        });
+
+        document.getElementById('pdfUploadLimitModal')?.addEventListener('click', function(event) {
+            if (event.target === this) {
+                closePdfUploadLimitModal();
             }
         });
 
@@ -596,6 +652,22 @@
                     if (!isPdfName || !isPdfType) {
                         this.value = '';
                         showToast('Only PDF files are allowed for thesis upload.', 'error');
+                        return;
+                    }
+
+                    const maxSizeMb = Number.parseFloat(this.dataset.maxSizeMb || '0');
+                    if (maxSizeMb > 0) {
+                        const maxSizeBytes = maxSizeMb * 1024 * 1024;
+                        if (file.size > maxSizeBytes) {
+                            this.value = '';
+
+                            const provider = (this.dataset.maxSizeProvider || '').toLowerCase();
+                            const providerLabel = provider === 'cloudinary' ? 'Cloudinary' : 'uploader';
+                            const message = `This PDF is ${(file.size / (1024 * 1024)).toFixed(2)} MB, which is above the ${providerLabel} limit of ${maxSizeMb} MB. Compress it first, then upload again.`;
+
+                            openPdfUploadLimitModal(message, 'PDF upload limit reached');
+                            showToast('PDF too large. Compress first before uploading.', 'warning');
+                        }
                     }
                 });
             });

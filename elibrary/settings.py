@@ -154,6 +154,9 @@ PDF_UPLOAD_MAX_MB = float(os.getenv("PDF_UPLOAD_MAX_MB", "0"))
 PDF_CHUNKED_UPLOAD_THRESHOLD_MB = float(os.getenv("PDF_CHUNKED_UPLOAD_THRESHOLD_MB", "8"))
 PDF_CHUNK_SIZE_MB = float(os.getenv("PDF_CHUNK_SIZE_MB", "20"))
 
+# Cloudinary PDF ceiling in MB for upload UI/validation.
+PDF_CLOUDINARY_MAX_MB = float(os.getenv("PDF_CLOUDINARY_MAX_MB", "100"))
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",

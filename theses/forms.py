@@ -17,6 +17,15 @@ class ThesisUploadForm(forms.ModelForm):
         model = Thesis
         fields = ["title", "abstract", "pdf_file", "course", "year", "preview_page"]
 
+    @staticmethod
+    def _cloudinary_upload_limit_mb():
+        if not getattr(settings, "USE_CLOUDINARY", False):
+            return 0.0
+        cloudinary_limit = float(getattr(settings, "PDF_CLOUDINARY_MAX_MB", 0) or 0)
+        if cloudinary_limit > 0:
+            return cloudinary_limit
+        return float(getattr(settings, "PDF_UPLOAD_MAX_MB", 0) or 0)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -40,6 +49,17 @@ class ThesisUploadForm(forms.ModelForm):
                 max_upload_mb = float(getattr(settings, "PDF_UPLOAD_MAX_MB", 0) or 0)
                 if max_upload_mb > 0:
                     field.help_text = f"Maximum file size: {max_upload_mb:g} MB"
+
+                cloudinary_limit_mb = self._cloudinary_upload_limit_mb()
+                if cloudinary_limit_mb > 0:
+                    field.widget.attrs.update(
+                        {
+                            "data-max-size-mb": f"{cloudinary_limit_mb:g}",
+                            "data-max-size-provider": "cloudinary",
+                        }
+                    )
+                    if max_upload_mb <= 0:
+                        field.help_text = f"Cloudinary upload limit: {cloudinary_limit_mb:g} MB"
 
             if name in {"year", "preview_page"}:
                 field.widget.attrs.update({"type": "number", "inputmode": "numeric", "step": "1"})
@@ -73,6 +93,16 @@ class ThesisUploadForm(forms.ModelForm):
             if file_size is not None and file_size > max_upload_bytes:
                 raise ValidationError(
                     f"PDF is too large ({file_size / (1024 * 1024):.2f} MB). Maximum allowed is {max_upload_mb:g} MB."
+                )
+
+        cloudinary_limit_mb = self._cloudinary_upload_limit_mb()
+        if cloudinary_limit_mb > 0:
+            cloudinary_limit_bytes = int(cloudinary_limit_mb * 1024 * 1024)
+            file_size = getattr(pdf_file, "size", None)
+            if file_size is not None and file_size > cloudinary_limit_bytes:
+                raise ValidationError(
+                    f"PDF is too large for Cloudinary ({file_size / (1024 * 1024):.2f} MB). "
+                    f"Compress it first, then upload again (max {cloudinary_limit_mb:g} MB)."
                 )
 
         # Calculate file hash and check for duplicates
