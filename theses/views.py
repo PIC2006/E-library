@@ -395,6 +395,7 @@ class AdminHomeView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         query = self.request.GET.get("q", "").strip()
+        user_query = self.request.GET.get("user_q", "").strip()
         course_id = self.request.GET.get("course_id", "").strip()
         year = self.request.GET.get("year", "").strip()
         recent_page_number = self.request.GET.get("recent_page", "1")
@@ -436,7 +437,19 @@ class AdminHomeView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context["admin_year"] = year
         context["total_downloads"] = Download.objects.count()
         context["total_users"] = get_user_model().objects.count()
-        context["managed_users"] = get_user_model().objects.order_by("-is_active", "-date_joined")
+
+        managed_users = get_user_model().objects.order_by("-is_active", "-date_joined")
+        if user_query:
+            managed_users = managed_users.filter(
+                models.Q(username__icontains=user_query)
+                | models.Q(first_name__icontains=user_query)
+                | models.Q(last_name__icontains=user_query)
+                | models.Q(email__icontains=user_query)
+                | models.Q(department__icontains=user_query)
+            )
+
+        context["managed_users"] = managed_users
+        context["admin_user_query"] = user_query
         return context
 
 

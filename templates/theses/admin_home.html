@@ -42,6 +42,7 @@
                 </div>
                 <form method="get" class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                     <input name="q" value="{{ admin_query }}" placeholder="Search by title, author, key..." class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500">
+                    <input type="hidden" name="user_q" value="{{ admin_user_query }}">
                     <select name="course_id" class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white focus:border-cyan-300 focus:outline-none">
                         <option value="">All courses</option>
                         {% for course_id, course_name in search_course_options %}
@@ -144,19 +145,19 @@
         {% if recent_uploads_page and recent_uploads_page.paginator.num_pages > 1 %}
             <div class="mt-8 flex flex-wrap items-center justify-center gap-2 text-sm">
                 {% if recent_uploads_page.has_previous %}
-                    <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&recent_page={{ recent_uploads_page.previous_page_number }}" class="rounded-xl border border-cyan-400/20 px-5 py-2.5 text-slate-200 hover:bg-cyan-400/10">Back</a>
+                    <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&user_q={{ admin_user_query }}&recent_page={{ recent_uploads_page.previous_page_number }}" class="rounded-xl border border-cyan-400/20 px-5 py-2.5 text-slate-200 hover:bg-cyan-400/10">Back</a>
                 {% endif %}
 
                 {% for num in recent_uploads_page.paginator.page_range %}
                     {% if num == recent_uploads_page.number %}
                         <span class="rounded-xl bg-cyan-400 px-4 py-2.5 font-semibold text-slate-950">{{ num }}</span>
                     {% else %}
-                        <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&recent_page={{ num }}" class="rounded-xl border border-cyan-400/20 px-4 py-2.5 text-slate-200 hover:bg-cyan-400/10">{{ num }}</a>
+                        <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&user_q={{ admin_user_query }}&recent_page={{ num }}" class="rounded-xl border border-cyan-400/20 px-4 py-2.5 text-slate-200 hover:bg-cyan-400/10">{{ num }}</a>
                     {% endif %}
                 {% endfor %}
 
                 {% if recent_uploads_page.has_next %}
-                    <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&recent_page={{ recent_uploads_page.next_page_number }}" class="rounded-xl border border-cyan-400/20 px-5 py-2.5 text-slate-200 hover:bg-cyan-400/10">Next</a>
+                    <a href="?q={{ admin_query }}&course_id={{ admin_course_id }}&year={{ admin_year }}&user_q={{ admin_user_query }}&recent_page={{ recent_uploads_page.next_page_number }}" class="rounded-xl border border-cyan-400/20 px-5 py-2.5 text-slate-200 hover:bg-cyan-400/10">Next</a>
                 {% endif %}
             </div>
         {% endif %}
@@ -170,6 +171,19 @@
             </div>
             <p class="text-sm text-slate-400">Inactive users are treated as banned.</p>
         </div>
+
+        <form method="get" class="mt-5 grid gap-3 sm:grid-cols-[1fr_auto]">
+            <input type="hidden" name="q" value="{{ admin_query }}">
+            <input type="hidden" name="course_id" value="{{ admin_course_id }}">
+            <input type="hidden" name="year" value="{{ admin_year }}">
+            <input
+                name="user_q"
+                value="{{ admin_user_query }}"
+                placeholder="Search users by username, name, email, department"
+                class="rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-white placeholder-slate-500"
+            >
+            <button type="submit" class="rounded-2xl bg-cyan-400 px-5 py-3 font-semibold text-slate-950 hover:bg-cyan-300">Search Users</button>
+        </form>
 
         <div class="mt-6 overflow-x-auto">
             <table class="w-full text-sm text-slate-300">
