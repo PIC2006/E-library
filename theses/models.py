@@ -5,6 +5,16 @@ from django.db import models
 from django.db.models import F
 from django.utils import timezone
 
+from cloudinary_storage.storage import MediaCloudinaryStorage, RawMediaCloudinaryStorage
+
+
+if getattr(settings, "USE_CLOUDINARY", False):
+    thesis_pdf_storage = RawMediaCloudinaryStorage()
+    thesis_preview_storage = MediaCloudinaryStorage()
+else:
+    thesis_pdf_storage = None
+    thesis_preview_storage = None
+
 
 class Course(models.Model):
     name = models.CharField(max_length=120, unique=True)
@@ -47,7 +57,7 @@ class Thesis(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     title = models.CharField(max_length=255, db_index=True)
     abstract = models.TextField()
-    pdf_file = models.FileField(upload_to="theses/%Y/%m/")
+    pdf_file = models.FileField(upload_to="theses/%Y/%m/", storage=thesis_pdf_storage)
     file_hash = models.CharField(max_length=64, blank=True, db_index=True, help_text="SHA256 hash of the PDF file for duplicate detection")
     preview_page = models.PositiveIntegerField(default=1)
     course = models.ForeignKey(Course, on_delete=models.PROTECT, related_name="theses")
@@ -104,7 +114,7 @@ class Thesis(models.Model):
 class ThesisPreview(models.Model):
     thesis = models.ForeignKey(Thesis, on_delete=models.CASCADE, related_name="previews")
     page_number = models.PositiveIntegerField()
-    preview_file = models.FileField(upload_to="thesis_previews/%Y/%m/")
+    preview_file = models.FileField(upload_to="thesis_previews/%Y/%m/", storage=thesis_preview_storage)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
