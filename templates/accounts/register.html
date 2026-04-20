@@ -2,48 +2,66 @@
 {% block title %}Register | E-Library{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-2xl">
-    <section class="glass rounded-3xl p-8">
-        <p class="text-xs uppercase tracking-[0.24em] text-cyan-200/70">New account</p>
-        <h1 class="mt-2 text-3xl font-bold text-white">Create your E-Library account</h1>
-        <p class="mt-3 text-sm text-slate-400">Registration unlocks unlimited thesis downloads and your personal bookmark list.</p>
+    <section class="glass overflow-hidden rounded-3xl">
+        <div class="border-b border-cyan-400/10 bg-gradient-to-r from-cyan-500/10 via-slate-950/20 to-transparent p-8">
+            <p class="text-xs uppercase tracking-[0.24em] text-cyan-200/70">New account</p>
+            <h1 class="mt-2 text-3xl font-bold text-white">Create your E-Library account</h1>
+            <p class="mt-3 max-w-xl text-sm text-slate-300">Registration unlocks unlimited thesis downloads, bookmark syncing, and access to your profile.</p>
+        </div>
 
-        <form method="post" class="mt-6 grid gap-4 sm:grid-cols-2">
-            {% csrf_token %}
-
-            {% if form.non_field_errors %}
-                <div class="sm:col-span-2 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-                    {{ form.non_field_errors.0 }}
-                </div>
-            {% endif %}
-
-            {% for field in form %}
-                <div class="sm:col-span-1">
-                    <label class="mb-2 block text-sm font-medium text-cyan-100">{{ field.label }}</label>
-                    {{ field }}
-                    {% for error in field.errors %}
-                        <p class="mt-1 text-xs text-rose-200">{{ error }}</p>
-                    {% endfor %}
-                    {% if field.help_text %}
-                        {% if field.name == 'username' or field.name == 'password1' or field.name == 'password2' %}
-                            <p class="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">{{ field.help_text|safe }}</p>
-                        {% else %}
-                            <p class="mt-1 text-xs text-slate-400">{{ field.help_text|safe }}</p>
-                        {% endif %}
-                    {% endif %}
-                </div>
-            {% endfor %}
-
-            <div class="sm:col-span-2">
-                <button type="submit" class="mt-2 rounded-full bg-cyan-400 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-300">
-                    Create account
-                </button>
+        <div class="p-8">
+            <div class="mb-6 grid gap-3 rounded-2xl border border-cyan-400/15 bg-slate-950/40 p-4 text-sm text-slate-300 sm:grid-cols-2">
+                <div class="rounded-xl border border-cyan-400/10 bg-slate-900/40 px-4 py-3">Use a real email address so you can recover your account.</div>
+                <div class="rounded-xl border border-cyan-400/10 bg-slate-900/40 px-4 py-3">Password rules are shown only when the form is invalid.</div>
             </div>
-        </form>
 
-        <p class="mt-6 text-sm text-slate-400">
-            Already registered?
-            <a href="{% url 'login' %}" class="font-semibold text-cyan-200 hover:text-cyan-100">Sign in</a>
-        </p>
+            <form method="post" class="grid gap-4 sm:grid-cols-2">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="sm:col-span-2 rounded-2xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
+                        {{ form.non_field_errors.0 }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="sm:col-span-1">
+                        <div class="mb-2 flex items-center justify-between gap-3">
+                            <label class="block text-sm font-medium text-cyan-100">{{ field.label }}</label>
+                            {% if field.field.required %}
+                                <span class="rounded-full border border-cyan-400/20 px-2 py-0.5 text-[11px] uppercase tracking-[0.18em] text-cyan-200/70">Required</span>
+                            {% endif %}
+                        </div>
+                        {{ field }}
+                        {% if field.errors %}
+                            <div class="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-100">
+                                {% for error in field.errors %}
+                                    <p>{{ error }}</p>
+                                {% endfor %}
+                                {% if field.name == 'username' %}
+                                    <p class="mt-1 text-amber-50/90">Use letters, numbers, and @/./+/-/_ only.</p>
+                                {% elif field.name == 'password1' %}
+                                    <p class="mt-1 text-amber-50/90">Use at least 8 characters and a stronger mix of letters and numbers.</p>
+                                {% elif field.name == 'password2' %}
+                                    <p class="mt-1 text-amber-50/90">Enter the same password again.</p>
+                                {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <div class="sm:col-span-2 mt-2">
+                    <button type="submit" class="rounded-full bg-cyan-400 px-6 py-3 font-semibold text-slate-950 hover:bg-cyan-300">
+                        Create account
+                    </button>
+                </div>
+            </form>
+
+            <p class="mt-6 text-sm text-slate-400">
+                Already registered?
+                <a href="{% url 'login' %}" class="font-semibold text-cyan-200 hover:text-cyan-100">Sign in</a>
+            </p>
+        </div>
     </section>
 </div>
 {% endblock %}

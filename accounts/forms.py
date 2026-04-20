@@ -39,9 +39,6 @@ class UserRegistrationForm(UserCreationForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields["username"].help_text = "Warning: Max 150 characters. Use letters, digits, and @/./+/-/_ only."
-        self.fields["password1"].help_text = "Warning: Use a strong password with at least 8 characters."
-        self.fields["password2"].help_text = "Warning: Enter the same password again for verification."
         for field in self.fields.values():
             field.widget.attrs.update(
                 {
