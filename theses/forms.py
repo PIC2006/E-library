@@ -65,6 +65,7 @@ class ThesisUploadForm(forms.ModelForm):
         pdf_file.seek(0)
         file_hash = hashlib.sha256(pdf_file.read()).hexdigest()
         pdf_file.seek(0)
+        self._uploaded_file_hash = file_hash
 
         # Check if this file hash already exists (skip if editing the same thesis)
         existing = Thesis.objects.filter(file_hash=file_hash).exclude(pk=self.instance.pk if self.instance.pk else None)

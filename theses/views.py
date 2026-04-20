@@ -1,5 +1,6 @@
 import logging
 import hashlib
+import io
 import os
 import threading
 from urllib.parse import quote
@@ -9,6 +10,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import models
 from django.db.models import Count
 from django.http import FileResponse, Http404, HttpResponseRedirect
@@ -42,6 +44,59 @@ def _calculate_file_hash(pdf_file):
         hash_obj.update(chunk)
     pdf_file.seek(0)
     return hash_obj.hexdigest()
+
+
+def _maybe_compress_uploaded_pdf(pdf_file):
+    if not getattr(settings, "PDF_COMPRESSION_ENABLED", True):
+        return pdf_file
+
+    min_size_bytes = max(0.0, float(getattr(settings, "PDF_COMPRESSION_MIN_MB", 0.5))) * 1024 * 1024
+
+    try:
+        pdf_file.seek(0)
+        original_bytes = pdf_file.read()
+        pdf_file.seek(0)
+    except Exception:
+        logger.exception("Failed reading PDF bytes for compression; continuing with original file")
+        return pdf_file
+
+    if len(original_bytes) < min_size_bytes:
+        return pdf_file
+
+    try:
+        import pikepdf  # type: ignore[import-not-found]
+    except ImportError:
+        logger.warning("pikepdf is not installed; skipping upload-time PDF compression")
+        return pdf_file
+
+    try:
+        input_stream = io.BytesIO(original_bytes)
+        output_stream = io.BytesIO()
+        with pikepdf.Pdf.open(input_stream) as pdf_doc:
+            pdf_doc.save(
+                output_stream,
+                object_stream_mode=pikepdf.ObjectStreamMode.generate,
+                compress_streams=True,
+            )
+        compressed_bytes = output_stream.getvalue()
+    except Exception:
+        logger.exception("PDF compression failed; continuing with original file")
+        return pdf_file
+
+    if not compressed_bytes or len(compressed_bytes) >= len(original_bytes):
+        return pdf_file
+
+    logger.info(
+        "Compressed upload PDF from %s bytes to %s bytes",
+        len(original_bytes),
+        len(compressed_bytes),
+    )
+
+    return SimpleUploadedFile(
+        name=getattr(pdf_file, "name", "uploaded.pdf"),
+        content=compressed_bytes,
+        content_type=getattr(pdf_file, "content_type", "application/pdf"),
+    )
 def _get_or_create_authors(author_names):
     if not author_names:
         return []
@@ -207,12 +262,17 @@ class ThesisUploadView(LoginRequiredMixin, UserPassesTestMixin, CreateView):
         return redirect("home")
 
     def form_valid(self, form):
+        uploaded_pdf = form.cleaned_data["pdf_file"]
+        compressed_pdf = _maybe_compress_uploaded_pdf(uploaded_pdf)
+        form.cleaned_data["pdf_file"] = compressed_pdf
+        form.instance.pdf_file = compressed_pdf
+
         form.instance.uploaded_by = self.request.user
         form.instance.status = Thesis.Status.APPROVED
         form.instance.is_public = True
         form.instance.approved_by = self.request.user
         form.instance.published_at = timezone.now()
-        form.instance.file_hash = _calculate_file_hash(form.cleaned_data["pdf_file"])
+        form.instance.file_hash = getattr(form, "_uploaded_file_hash", None) or _calculate_file_hash(uploaded_pdf)
         response = super().form_valid(form)
         author_names = [name.strip() for name in form.cleaned_data["author_names"].split(",") if name.strip()]
         keyword_names = [name.strip() for name in form.cleaned_data.get("keyword_names", "").split(",") if name.strip()]
@@ -245,7 +305,11 @@ class ThesisEditView(LoginRequiredMixin, UserPassesTestMixin, UpdateView):
     def form_valid(self, form):
         # Calculate new file hash if file was changed
         if "pdf_file" in form.changed_data and form.cleaned_data["pdf_file"]:
-            form.instance.file_hash = _calculate_file_hash(form.cleaned_data["pdf_file"])
+            uploaded_pdf = form.cleaned_data["pdf_file"]
+            compressed_pdf = _maybe_compress_uploaded_pdf(uploaded_pdf)
+            form.cleaned_data["pdf_file"] = compressed_pdf
+            form.instance.pdf_file = compressed_pdf
+            form.instance.file_hash = getattr(form, "_uploaded_file_hash", None) or _calculate_file_hash(uploaded_pdf)
         
         response = super().form_valid(form)
         
