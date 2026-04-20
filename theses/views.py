@@ -436,6 +436,7 @@ class AdminHomeView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
         context["admin_year"] = year
         context["total_downloads"] = Download.objects.count()
         context["total_users"] = get_user_model().objects.count()
+        context["managed_users"] = get_user_model().objects.order_by("-is_active", "-date_joined")
         return context
 
 

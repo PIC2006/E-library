@@ -5,11 +5,12 @@ from django.db import models
 from django.db.models import F
 from django.utils import timezone
 
-from cloudinary_storage.storage import MediaCloudinaryStorage, RawMediaCloudinaryStorage
-from .storage import ThesisPDFCloudinaryStorage
-
 
 if getattr(settings, "USE_CLOUDINARY", False):
+    from cloudinary_storage.storage import MediaCloudinaryStorage
+
+    from .storage import ThesisPDFCloudinaryStorage
+
     thesis_pdf_storage = ThesisPDFCloudinaryStorage()
     thesis_preview_storage = MediaCloudinaryStorage()
 else:

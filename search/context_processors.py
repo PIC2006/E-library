@@ -58,6 +58,9 @@ def search_ui_context(request):
         request.user.is_staff or request.user.is_superuser or getattr(request.user, "role", None) == "admin"
     )
 
+    if not request.user.is_authenticated:
+        external_sources = [source for source in external_sources if source.get("category") != "gdrive"]
+
     return {
         "search_course_options": courses,
         "search_suggestions": search_suggestions,

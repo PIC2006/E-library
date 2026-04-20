@@ -161,5 +161,66 @@
             </div>
         {% endif %}
     </section>
+
+    <section class="glass rounded-3xl p-8">
+        <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+                <h2 class="text-2xl font-bold text-white">Users</h2>
+                <p class="mt-2 text-sm text-slate-400">Ban, restore, or delete accounts from the staff portal.</p>
+            </div>
+            <p class="text-sm text-slate-400">Inactive users are treated as banned.</p>
+        </div>
+
+        <div class="mt-6 overflow-x-auto">
+            <table class="w-full text-sm text-slate-300">
+                <thead>
+                    <tr class="border-b border-cyan-400/10">
+                        <th class="px-4 py-3 text-left text-cyan-200">User</th>
+                        <th class="px-4 py-3 text-left text-cyan-200">Role</th>
+                        <th class="px-4 py-3 text-left text-cyan-200">Status</th>
+                        <th class="px-4 py-3 text-left text-cyan-200">Joined</th>
+                        <th class="px-4 py-3 text-center text-cyan-200">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-cyan-400/10">
+                    {% for account in managed_users %}
+                        <tr>
+                            <td class="px-4 py-3">
+                                <div class="font-medium text-white">{{ account.get_full_name|default:account.username }}</div>
+                                <div class="text-xs text-slate-500">{{ account.email|default:'No email set' }}</div>
+                            </td>
+                            <td class="px-4 py-3 capitalize">{{ account.role }}</td>
+                            <td class="px-4 py-3">
+                                {% if account.is_active %}
+                                    <span class="rounded-full border border-emerald-400/30 px-3 py-1 text-xs text-emerald-100">Active</span>
+                                {% else %}
+                                    <span class="rounded-full border border-rose-400/30 px-3 py-1 text-xs text-rose-100">Banned</span>
+                                {% endif %}
+                            </td>
+                            <td class="px-4 py-3 text-slate-400">{{ account.date_joined|date:"M d, Y" }}</td>
+                            <td class="px-4 py-3">
+                                <div class="flex flex-wrap justify-center gap-2">
+                                    <form method="post" action="{% url 'staff-user-toggle-active' account.pk %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="rounded-full border border-cyan-400/20 px-4 py-2 text-xs font-semibold text-cyan-100 hover:bg-cyan-400/10">
+                                            {% if account.is_active %}Ban{% else %}Restore{% endif %}
+                                        </button>
+                                    </form>
+                                    <form method="post" action="{% url 'staff-user-delete' account.pk %}" onsubmit="return confirm('Delete this user permanently?')">
+                                        {% csrf_token %}
+                                        <button type="submit" class="rounded-full border border-rose-400/30 px-4 py-2 text-xs font-semibold text-rose-100 hover:bg-rose-500/10">Delete</button>
+                                    </form>
+                                </div>
+                            </td>
+                        </tr>
+                    {% empty %}
+                        <tr>
+                            <td colspan="5" class="px-4 py-6 text-center text-slate-400">No users found.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 {% endblock %}
