@@ -3,6 +3,7 @@ import os
 import hashlib
 
 from django import forms
+from django.conf import settings
 from django.core.exceptions import ValidationError
 
 from .models import Thesis
@@ -36,6 +37,10 @@ class ThesisUploadForm(forms.ModelForm):
                     field.widget.attrs.update({"accept": ".pdf,application/pdf"})
                     field.required = False
 
+                max_upload_mb = float(getattr(settings, "PDF_UPLOAD_MAX_MB", 0) or 0)
+                if max_upload_mb > 0:
+                    field.help_text = f"Maximum file size: {max_upload_mb:g} MB"
+
             if name in {"year", "preview_page"}:
                 field.widget.attrs.update({"type": "number", "inputmode": "numeric", "step": "1"})
 
@@ -60,6 +65,15 @@ class ThesisUploadForm(forms.ModelForm):
         content_type = getattr(pdf_file, "content_type", "") or ""
         if content_type and content_type not in {"application/pdf", "application/x-pdf"}:
             raise ValidationError("Only PDF files are allowed.")
+
+        max_upload_mb = float(getattr(settings, "PDF_UPLOAD_MAX_MB", 0) or 0)
+        if max_upload_mb > 0:
+            max_upload_bytes = int(max_upload_mb * 1024 * 1024)
+            file_size = getattr(pdf_file, "size", None)
+            if file_size is not None and file_size > max_upload_bytes:
+                raise ValidationError(
+                    f"PDF is too large ({file_size / (1024 * 1024):.2f} MB). Maximum allowed is {max_upload_mb:g} MB."
+                )
 
         # Calculate file hash and check for duplicates
         pdf_file.seek(0)

@@ -147,6 +147,13 @@ THESIS_DOWNLOAD_PROXY_MAX_MB = int(os.getenv("THESIS_DOWNLOAD_PROXY_MAX_MB", 25)
 PDF_COMPRESSION_ENABLED = os.getenv("PDF_COMPRESSION_ENABLED", "1") == "1"
 PDF_COMPRESSION_MIN_MB = float(os.getenv("PDF_COMPRESSION_MIN_MB", "0.5"))
 
+# Maximum allowed PDF upload size in MB (0 disables the check).
+PDF_UPLOAD_MAX_MB = float(os.getenv("PDF_UPLOAD_MAX_MB", "0"))
+
+# Cloudinary chunked upload controls for thesis PDFs.
+PDF_CHUNKED_UPLOAD_THRESHOLD_MB = float(os.getenv("PDF_CHUNKED_UPLOAD_THRESHOLD_MB", "8"))
+PDF_CHUNK_SIZE_MB = float(os.getenv("PDF_CHUNK_SIZE_MB", "20"))
+
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework.authentication.SessionAuthentication",
