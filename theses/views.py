@@ -177,8 +177,6 @@ class ThesisPDFView(DetailView):
     context_object_name = "thesis"
 
     def dispatch(self, request, *args, **kwargs):
-        if not settings.DEBUG:
-            raise Http404("PDF viewer is disabled outside debug mode.")
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
