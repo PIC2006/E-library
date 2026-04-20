@@ -1,6 +1,8 @@
 import logging
 import hashlib
+import os
 import threading
+import urllib.request
 from urllib.parse import quote
 
 from django.contrib import messages
@@ -10,7 +12,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.paginator import Paginator
 from django.db import models
 from django.db.models import Count
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, StreamingHttpResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
@@ -415,10 +417,37 @@ class ThesisDownloadView(View):
                 login_url = f"{reverse('login')}?next={quote(request.get_full_path())}"
                 return redirect(login_url)
 
+        file_name = thesis.pdf_file.name.split("/")[-1]
+
         try:
-            thesis.pdf_file.open("rb")
-        except FileNotFoundError:
-            logger.warning("Missing PDF file for thesis %s at %s", thesis.pk, thesis.pdf_file.name)
+            file_path = thesis.pdf_file.path
+        except (NotImplementedError, ValueError, OSError):
+            file_path = None
+
+        if file_path and os.path.exists(file_path):
+            thesis.increment_download_count()
+            Download.objects.create(
+                thesis=thesis,
+                user=request.user if request.user.is_authenticated else None,
+                ip_address=client_ip,
+                user_agent=request.META.get("HTTP_USER_AGENT", ""),
+            )
+
+            if not request.user.is_authenticated and not client_ip:
+                request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
+
+            response = FileResponse(open(file_path, "rb"), as_attachment=True, filename=file_name)
+            response["Content-Disposition"] = f'attachment; filename="{file_name}"'
+            return response
+
+        file_url = thesis.pdf_file.url
+        if file_url.startswith("/"):
+            file_url = request.build_absolute_uri(file_url)
+
+        try:
+            remote_file = urllib.request.urlopen(file_url)
+        except Exception:
+            logger.exception("Missing or inaccessible PDF file for thesis %s at %s", thesis.pk, thesis.pdf_file.name)
             raise Http404("PDF file not found.")
 
         thesis.increment_download_count()
@@ -432,8 +461,16 @@ class ThesisDownloadView(View):
         if not request.user.is_authenticated and not client_ip:
             request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
 
-        response = FileResponse(thesis.pdf_file, as_attachment=True, filename=thesis.pdf_file.name.split("/")[-1])
-        response["Content-Disposition"] = f'attachment; filename="{thesis.pdf_file.name.split("/")[-1]}"'
+        def _stream_remote_file(handle):
+            with handle:
+                while True:
+                    chunk = handle.read(8192)
+                    if not chunk:
+                        break
+                    yield chunk
+
+        response = StreamingHttpResponse(_stream_remote_file(remote_file), content_type="application/pdf")
+        response["Content-Disposition"] = f'attachment; filename="{file_name}"'
         return response
 
 

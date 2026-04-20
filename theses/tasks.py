@@ -1,4 +1,8 @@
 from celery import shared_task
+import io
+import os
+import urllib.request
+
 from django.core.files.base import ContentFile
 import fitz
 from pypdf import PdfReader
@@ -6,9 +10,24 @@ from pypdf import PdfReader
 from .models import Thesis, ThesisPreview
 
 
+def _load_pdf_bytes(thesis):
+    try:
+        file_path = thesis.pdf_file.path
+    except (NotImplementedError, ValueError, OSError):
+        file_path = None
+
+    if file_path and os.path.exists(file_path):
+        with open(file_path, "rb") as handle:
+            return handle.read()
+
+    file_url = thesis.pdf_file.url
+    with urllib.request.urlopen(file_url) as remote_file:
+        return remote_file.read()
+
+
 def extract_thesis_text(thesis, max_pages=8):
-    thesis.pdf_file.open("rb")
-    reader = PdfReader(thesis.pdf_file)
+    pdf_bytes = _load_pdf_bytes(thesis)
+    reader = PdfReader(io.BytesIO(pdf_bytes))
     extracted_text = []
     for page in reader.pages[:max_pages]:
         extracted_text.append(page.extract_text() or "")
@@ -18,12 +37,8 @@ def extract_thesis_text(thesis, max_pages=8):
 
 
 def build_thesis_previews(thesis, max_pages=2):
-    try:
-        doc = fitz.open(thesis.pdf_file.path)
-    except Exception:
-        thesis.pdf_file.open("rb")
-        pdf_bytes = thesis.pdf_file.read()
-        doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+    pdf_bytes = _load_pdf_bytes(thesis)
+    doc = fitz.open(stream=pdf_bytes, filetype="pdf")
     ThesisPreview.objects.filter(thesis=thesis).delete()
     previews = []
 

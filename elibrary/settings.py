@@ -12,6 +12,21 @@ USE_S3 = os.getenv("USE_S3", "0") == "1"
 if USE_CLOUDINARY and USE_S3:
     raise ImproperlyConfigured("Enable only one media backend: set either USE_CLOUDINARY=1 or USE_S3=1, not both.")
 
+_cloudinary_url = os.getenv("CLOUDINARY_URL", "").strip()
+_cloudinary_cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
+_cloudinary_api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
+_cloudinary_api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
+
+if USE_CLOUDINARY:
+    if _cloudinary_url and not _cloudinary_url.startswith("cloudinary://"):
+        raise ImproperlyConfigured(
+            "CLOUDINARY_URL must start with 'cloudinary://'. Remove the invalid value or replace it with a valid Cloudinary URL."
+        )
+    if not _cloudinary_url and not (_cloudinary_cloud_name and _cloudinary_api_key and _cloudinary_api_secret):
+        raise ImproperlyConfigured(
+            "Cloudinary is enabled but credentials are missing. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME/CLOUDINARY_API_KEY/CLOUDINARY_API_SECRET."
+        )
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "django-insecure-change-me")
 # Default DEBUG to off for safer production behavior.
 DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
@@ -149,15 +164,6 @@ CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = TIME_ZONE
 
 if USE_CLOUDINARY:
-    cloudinary_url = os.getenv("CLOUDINARY_URL", "").strip()
-    cloud_name = os.getenv("CLOUDINARY_CLOUD_NAME", "").strip()
-    api_key = os.getenv("CLOUDINARY_API_KEY", "").strip()
-    api_secret = os.getenv("CLOUDINARY_API_SECRET", "").strip()
-    if not cloudinary_url and not (cloud_name and api_key and api_secret):
-        raise ImproperlyConfigured(
-            "Cloudinary is enabled but credentials are missing. Set CLOUDINARY_URL or CLOUDINARY_CLOUD_NAME/CLOUDINARY_API_KEY/CLOUDINARY_API_SECRET."
-        )
-
     STORAGES = {
         "default": {"BACKEND": "cloudinary_storage.storage.MediaCloudinaryStorage"},
         "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
