@@ -1,6 +1,5 @@
 from django.contrib import messages
 from django.contrib.auth import get_user_model
-from django.contrib.auth import login
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.views import LoginView, LogoutView
 from django.shortcuts import get_object_or_404, redirect
@@ -11,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .forms import StyledAuthenticationForm, UserLoginForm, UserRegistrationForm
+from .forms import UserProfileUpdateForm
 from .serializers import UserSerializer
 
 
@@ -36,9 +36,14 @@ class UserRegistrationView(CreateView):
 
     def form_valid(self, form):
         response = super().form_valid(form)
-        login(self.request, self.object)
-        messages.success(self.request, "Account created. Welcome to E-Library.")
+        messages.success(
+            self.request,
+            "Account created. Your registration is pending admin approval before you can sign in.",
+        )
         return response
+
+    def get_success_url(self):
+        return reverse_lazy("login")
 
 
 class ProfileView(TemplateView):
@@ -66,7 +71,22 @@ class ProfileView(TemplateView):
             .order_by("-created_at")[:10]
         )
         context["total_downloads"] = Download.objects.filter(user=user).count()
+        context["profile_form"] = UserProfileUpdateForm(instance=user)
         return context
+
+    def post(self, request, *args, **kwargs):
+        if not request.user.is_authenticated:
+            return redirect("login")
+
+        form = UserProfileUpdateForm(request.POST, request.FILES, instance=request.user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Profile updated successfully.")
+            return redirect("profile")
+
+        context = self.get_context_data(**kwargs)
+        context["profile_form"] = form
+        return self.render_to_response(context)
 
 
 class AdminLoginView(LoginView):
@@ -118,3 +138,18 @@ class StaffUserDeleteView(StaffOnlyMixin, View):
 class MeAPIView(APIView):
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class StaffUserToggleApprovalView(StaffOnlyMixin, View):
+    def post(self, request, pk, *args, **kwargs):
+        user = get_object_or_404(get_user_model(), pk=pk)
+        if user.pk == request.user.pk:
+            messages.warning(request, "You cannot change your own approval status from this page.")
+            return redirect("admin-home")
+
+        user.is_approved = not user.is_approved
+        user.save(update_fields=["is_approved"])
+
+        status_text = "approved" if user.is_approved else "moved back to pending"
+        messages.success(request, f"{user.username} has been {status_text}.")
+        return redirect("admin-home")

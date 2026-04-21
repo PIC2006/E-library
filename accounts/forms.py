@@ -27,6 +27,14 @@ class UserLoginForm(AuthenticationForm):
                 }
             )
 
+    def confirm_login_allowed(self, user):
+        super().confirm_login_allowed(user)
+        if not getattr(user, "is_approved", False):
+            raise forms.ValidationError(
+                "Your account is pending admin approval. Please wait for approval before signing in.",
+                code="inactive",
+            )
+
 
 class UserRegistrationForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -58,6 +66,23 @@ class UserRegistrationForm(UserCreationForm):
         user.first_name = self.cleaned_data["first_name"]
         user.last_name = self.cleaned_data["last_name"]
         user.role = user.Role.STUDENT
+        user.is_approved = False
+        user.is_active = True
         if commit:
             user.save()
         return user
+
+
+class UserProfileUpdateForm(forms.ModelForm):
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "department", "phone_number"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field in self.fields.values():
+            field.widget.attrs.update(
+                {
+                    "class": "mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none",
+                }
+            )

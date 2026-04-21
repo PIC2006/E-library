@@ -133,9 +133,13 @@
                 {% if user.is_authenticated %}
                     <div class="relative">
                         <button id="profileMenuButton" type="button" class="inline-flex items-center gap-2 rounded-full border border-cyan-400/30 bg-slate-900/70 px-2 py-1.5 text-cyan-100 hover:bg-cyan-400/10" aria-expanded="false" aria-controls="profileMenu">
-                            <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-500/10 text-sm font-semibold text-cyan-100">
-                                {{ user.first_name|default:user.username|slice:":1"|upper }}
-                            </span>
+                            {% if user.profile_picture_safe_url %}
+                                <img src="{{ user.profile_picture_safe_url }}" alt="{{ user.username }} avatar" class="h-9 w-9 rounded-full border border-cyan-300/40 object-cover">
+                            {% else %}
+                                <span class="inline-flex h-9 w-9 items-center justify-center rounded-full border border-cyan-300/40 bg-cyan-500/10 text-sm font-semibold text-cyan-100">
+                                    {{ user.first_name|default:user.username|slice:":1"|upper }}
+                                </span>
+                            {% endif %}
                             <span class="hidden max-w-[9rem] truncate text-sm text-slate-200 lg:block">{{ user.get_full_name|default:user.username }}</span>
                             <svg class="h-4 w-4 text-cyan-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
@@ -292,7 +296,7 @@
                 <div>
                     <p class="text-xs uppercase tracking-[0.28em] text-cyan-200/70">Account access</p>
                     <h2 id="signInModalTitle" class="mt-2 text-2xl font-bold text-white">Sign in to your account</h2>
-                    <p id="signInModalMessage" class="mt-2 text-sm text-slate-400">Register or sign in to preview and download thesis PDFs.</p>
+                    <p id="signInModalMessage" class="mt-2 text-sm text-slate-400">Register or sign in to preview and download thesis PDFs. Accounts need admin approval before first access.</p>
                 </div>
                 <button type="button" onclick="closeSignInModal()" class="rounded-full border border-cyan-400/20 px-3 py-2 text-cyan-100 hover:bg-cyan-400/10">✕</button>
             </div>
@@ -473,7 +477,7 @@
                 titleNode.textContent = options.title || 'Sign in to your account';
             }
             if (messageNode) {
-                messageNode.textContent = options.message || 'Register or sign in to preview and download thesis PDFs.';
+                messageNode.textContent = options.message || 'Register or sign in to preview and download thesis PDFs. Accounts need admin approval before first access.';
             }
             if (nextInput) {
                 nextInput.value = options.nextUrl || "{{ request.get_full_path|escapejs }}";
