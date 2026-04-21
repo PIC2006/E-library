@@ -111,7 +111,11 @@
                 <div class="flex flex-col items-start gap-3 md:items-end">
                     <span class="rounded-full border border-cyan-400/20 px-4 py-2 text-sm text-cyan-100">{{ thesis.download_count }} downloads</span>
                     <div class="flex flex-wrap gap-2">
-                        <a class="rounded-full border border-cyan-400/30 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10" href="{% url 'thesis-pdf' thesis.pk %}" onclick="showToast('Opening PDF viewer', 'info')">Preview</a>
+                        {% if user.is_authenticated %}
+                            <a class="rounded-full border border-cyan-400/30 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10" href="{% url 'thesis-pdf' thesis.pk %}" onclick="showToast('Opening PDF viewer', 'info')">Preview</a>
+                        {% else %}
+                            <a class="rounded-full border border-cyan-400/30 px-4 py-2 text-sm text-cyan-100 hover:bg-cyan-400/10" href="{% url 'login' %}" data-next-url="{% url 'thesis-pdf' thesis.pk %}" data-modal-title="Login required for PDF access" data-modal-message="You need to register or sign in before previewing this thesis PDF." onclick="openSignInModalFromTrigger(this); return false;">Preview</a>
+                        {% endif %}
                         <a class="rounded-full bg-cyan-400 px-5 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-300" href="{% url 'thesis-detail' thesis.pk %}" onclick="showToast('Opening thesis details', 'info')">Open thesis</a>
                     </div>
                 </div>

@@ -291,15 +291,15 @@
             <div class="flex items-start justify-between gap-4">
                 <div>
                     <p class="text-xs uppercase tracking-[0.28em] text-cyan-200/70">Account access</p>
-                    <h2 class="mt-2 text-2xl font-bold text-white">Sign in to your account</h2>
-                    <p class="mt-2 text-sm text-slate-400">Guests can download up to 5 theses. Signed-in users get unlimited downloads and bookmarks.</p>
+                    <h2 id="signInModalTitle" class="mt-2 text-2xl font-bold text-white">Sign in to your account</h2>
+                    <p id="signInModalMessage" class="mt-2 text-sm text-slate-400">Register or sign in to preview and download thesis PDFs.</p>
                 </div>
                 <button type="button" onclick="closeSignInModal()" class="rounded-full border border-cyan-400/20 px-3 py-2 text-cyan-100 hover:bg-cyan-400/10">✕</button>
             </div>
 
             <form method="post" action="{% url 'login' %}" class="mt-6 grid gap-4" onsubmit="return lockFormSubmission(this, 'Signing in...')">
                 {% csrf_token %}
-                <input type="hidden" name="next" value="{{ request.get_full_path }}">
+                <input id="signInModalNext" type="hidden" name="next" value="{{ request.get_full_path }}">
                 <div>
                     <label class="mb-2 block text-sm font-medium text-cyan-100">Username</label>
                     <input type="text" name="username" required autocomplete="username" class="mt-1 w-full rounded-2xl border border-cyan-400/20 bg-slate-950/60 px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:border-cyan-300 focus:outline-none">
@@ -458,12 +458,27 @@
             modal.classList.remove('flex');
         }
 
-        function openSignInModal() {
+        function openSignInModal(options = {}) {
             const modal = document.getElementById('signInModal');
             if (!modal) {
                 window.location.href = "{% url 'login' %}";
                 return;
             }
+
+            const titleNode = document.getElementById('signInModalTitle');
+            const messageNode = document.getElementById('signInModalMessage');
+            const nextInput = document.getElementById('signInModalNext');
+
+            if (titleNode) {
+                titleNode.textContent = options.title || 'Sign in to your account';
+            }
+            if (messageNode) {
+                messageNode.textContent = options.message || 'Register or sign in to preview and download thesis PDFs.';
+            }
+            if (nextInput) {
+                nextInput.value = options.nextUrl || "{{ request.get_full_path|escapejs }}";
+            }
+
             modal.classList.remove('hidden');
             modal.classList.add('flex');
             const usernameInput = modal.querySelector('input[name="username"]');
@@ -477,6 +492,19 @@
             if (!modal) return;
             modal.classList.add('hidden');
             modal.classList.remove('flex');
+        }
+
+        function openSignInModalFromTrigger(trigger) {
+            if (!trigger) {
+                openSignInModal();
+                return;
+            }
+
+            openSignInModal({
+                nextUrl: trigger.dataset.nextUrl || '',
+                title: trigger.dataset.modalTitle || '',
+                message: trigger.dataset.modalMessage || '',
+            });
         }
 
         function openPdfUploadLimitModal(message, title = 'PDF is too large') {

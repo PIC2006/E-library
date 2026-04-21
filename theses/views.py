@@ -3,7 +3,6 @@ import hashlib
 import io
 import os
 import threading
-from urllib.parse import quote
 
 from django.contrib import messages
 from django.conf import settings
@@ -26,7 +25,6 @@ from .tasks import process_thesis_upload
 
 
 logger = logging.getLogger(__name__)
-GUEST_DOWNLOAD_LIMIT = 5
 
 
 def _get_client_ip(request):
@@ -227,13 +225,10 @@ class ThesisDetailView(DetailView):
         return context
 
 
-class ThesisPDFView(DetailView):
+class ThesisPDFView(LoginRequiredMixin, DetailView):
     model = Thesis
     template_name = "theses/pdf_view.html"
     context_object_name = "thesis"
-
-    def dispatch(self, request, *args, **kwargs):
-        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = Thesis.objects.select_related("course", "uploaded_by", "approved_by").prefetch_related("authors", "keywords", "previews")
@@ -471,7 +466,7 @@ class AnalyticsDashboardView(LoginRequiredMixin, UserPassesTestMixin, TemplateVi
         return context
 
 
-class ThesisDownloadView(View):
+class ThesisDownloadView(LoginRequiredMixin, View):
     def get_object(self):
         return get_object_or_404(Thesis, pk=self.kwargs["pk"], is_public=True, status=Thesis.Status.APPROVED)
 
@@ -488,18 +483,6 @@ class ThesisDownloadView(View):
             file_size = None
 
         client_ip = _get_client_ip(request)
-        if not request.user.is_authenticated:
-            if client_ip:
-                anonymous_downloads = Download.objects.filter(user__isnull=True, ip_address=client_ip).count()
-            else:
-                anonymous_downloads = request.session.get("guest_download_count", 0)
-            if anonymous_downloads >= GUEST_DOWNLOAD_LIMIT:
-                messages.warning(
-                    request,
-                    "Guest download limit reached (5 theses). Sign in or register for unlimited downloads.",
-                )
-                login_url = f"{reverse('login')}?next={quote(request.get_full_path())}"
-                return redirect(login_url)
 
         file_name = thesis.pdf_file.name.split("/")[-1]
         file_url = thesis.pdf_file.url
@@ -511,12 +494,10 @@ class ThesisDownloadView(View):
             thesis.increment_download_count()
             Download.objects.create(
                 thesis=thesis,
-                user=request.user if request.user.is_authenticated else None,
+                user=request.user,
                 ip_address=client_ip,
                 user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
-            if not request.user.is_authenticated and not client_ip:
-                request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
 
             messages.info(
                 request,
@@ -533,13 +514,10 @@ class ThesisDownloadView(View):
             thesis.increment_download_count()
             Download.objects.create(
                 thesis=thesis,
-                user=request.user if request.user.is_authenticated else None,
+                user=request.user,
                 ip_address=client_ip,
                 user_agent=request.META.get("HTTP_USER_AGENT", ""),
             )
-
-            if not request.user.is_authenticated and not client_ip:
-                request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
 
             response = FileResponse(open(file_path, "rb"), as_attachment=True, filename=file_name)
             response["Content-Disposition"] = f'attachment; filename="{file_name}"'
@@ -548,13 +526,10 @@ class ThesisDownloadView(View):
         thesis.increment_download_count()
         Download.objects.create(
             thesis=thesis,
-            user=request.user if request.user.is_authenticated else None,
+            user=request.user,
             ip_address=client_ip,
             user_agent=request.META.get("HTTP_USER_AGENT", ""),
         )
-
-        if not request.user.is_authenticated and not client_ip:
-            request.session["guest_download_count"] = request.session.get("guest_download_count", 0) + 1
 
         return HttpResponseRedirect(file_url)
 
